@@ -1,4 +1,19 @@
 
+export interface DomainData {
+  id: string
+  label: string
+  description: string
+  spells: { [level: number]: string[] }
+}
+
+export interface OathData {
+  id: string
+  label: string
+  description: string
+  channelDivinity: { title: string; description: string }[]
+  spells: { [level: number]: string[] }
+}
+
 export interface ApiSpell {
   name: string;
   castingTime?: string;

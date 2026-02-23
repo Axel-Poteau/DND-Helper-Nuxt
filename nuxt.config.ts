@@ -6,7 +6,12 @@ export default defineNuxtConfig({
   modules: [
     '@nuxtjs/tailwindcss',
     '@nuxtjs/google-fonts',
+    '@nuxtjs/supabase',
   ],
+
+  supabase: {
+    redirect: false,
+  },
 
   googleFonts: {
     families: {
