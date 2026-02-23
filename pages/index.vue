@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import type { Spell } from '~/types'
-import type { DomainData } from '~/data/domains'
-import type { OathData } from '~/data/oaths'
-import { CLERIC_DOMAINS } from '~/data/domains'
-import { PALADIN_OATHS } from '~/data/oaths'
+import type { Spell, DomainData, OathData } from '~/types'
 import { getSlotsForClass } from '~/utils/spellProgression'
+
+const { domains, oaths } = useSubclassData()
 
 // Table des sorts connus pour les classes spontanées (Barde, Ensorceleur...)
 const SPELLS_KNOWN_BY_CLASS: Record<string, number[]> = {
@@ -73,8 +71,8 @@ const maxSpellLevel = computed(() => availableLevels.value.length > 0 ? Math.max
 
 // 2. Récupération des données de Sous-classe (Domaine ou Serment)
 const subClassDataList = computed<(DomainData | OathData)[]>(() => {
-  if (selectedClass.value === 'clerc') return Object.values(CLERIC_DOMAINS)
-  if (selectedClass.value === 'paladin') return Object.values(PALADIN_OATHS)
+  if (selectedClass.value === 'clerc') return Object.values(domains.value ?? {})
+  if (selectedClass.value === 'paladin') return Object.values(oaths.value ?? {})
   return []
 })
 
@@ -86,10 +84,10 @@ const subclassLabel = computed(() => {
 
 const subclassDesc = computed(() => {
   if (selectedClass.value === 'clerc') {
-    return CLERIC_DOMAINS[selectedSubclass.value]?.description || ''
+    return (domains.value ?? {})[selectedSubclass.value]?.description || ''
   }
   if (selectedClass.value === 'paladin') {
-    return PALADIN_OATHS[selectedSubclass.value]?.description || ''
+    return (oaths.value ?? {})[selectedSubclass.value]?.description || ''
   }
   return ''
 })
@@ -99,9 +97,9 @@ const subclassSpellsList = computed(() => {
   let currentData: DomainData | OathData | undefined
 
   if (selectedClass.value === 'clerc') {
-    currentData = CLERIC_DOMAINS[selectedSubclass.value]
+    currentData = (domains.value ?? {})[selectedSubclass.value]
   } else if (selectedClass.value === 'paladin') {
-    currentData = PALADIN_OATHS[selectedSubclass.value]
+    currentData = (oaths.value ?? {})[selectedSubclass.value]
   }
 
   if (currentData) {

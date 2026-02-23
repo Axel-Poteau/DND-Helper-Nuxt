@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PALADIN_OATHS } from '~/data/oaths'
+const { oaths } = useSubclassData()
 
 const props = defineProps<{
   playerLevel: number
@@ -93,7 +93,7 @@ const features = computed(() => {
 
   // ================== LOGIQUE PALADIN ==================
   else if (pClass === 'paladin' && props.playerLevel >= 3) {
-    const oathData = PALADIN_OATHS[props.selectedSubclass]
+    const oathData = (oaths.value ?? {})[props.selectedSubclass]
     if (oathData && oathData.channelDivinity) {
       oathData.channelDivinity.forEach((feat) => {
         result.push({ name: feat.title, desc: feat.description })
