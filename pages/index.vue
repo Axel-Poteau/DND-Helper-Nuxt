@@ -1,411 +1,167 @@
 <script setup lang="ts">
-import type { Spell, DomainData, OathData } from '~/types'
-import { getSlotsForClass } from '~/utils/spellProgression'
+const email = ref('')
+const password = ref('')
 
-const { domains, oaths } = useSubclassData()
+// Formulaire d'inscription
+const surnom = ref('')
+const registerEmail = ref('')
+const registerPassword = ref('')
+const registerPasswordConfirm = ref('')
 
-// Table des sorts connus pour les classes spontanées (Barde, Ensorceleur...)
-const SPELLS_KNOWN_BY_CLASS: Record<string, number[]> = {
-  barde:       [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 15, 16, 18, 19, 19, 20, 22, 22, 22],
-  ensorceleur: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 13, 13, 14, 14, 15, 15, 15, 15],
-  occultiste:  [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15],
-}
-
-// --- ÉTATS GLOBAUX ---
-const playerLevel = ref(1)
-const selectedClass = ref('clerc')
-const preparedSpells = ref<Spell[]>([])
-const abilityMod = ref(3)
-const searchQuery = ref('')
-const selectedSubclass = ref('vie')
-
-// --- ÉTATS VISUELS & API ---
-const spellsList = ref<Spell[]>([])
-const isLoading = ref(false)
-const error = ref<string | null>(null)
-
-// États du Tooltip Flottant
-const hoveredSpell = ref<Spell | null>(null)
-const tooltipPos = ref<{ x: number; y: number } | null>(null)
-const tooltipSide = ref<'left' | 'right'>('right')
-
-// --- EFFET 1 : CHANGEMENT DE CLASSE ---
-watch(selectedClass, (newClass) => {
-  preparedSpells.value = []
-  if (newClass === 'paladin') {
-    selectedSubclass.value = 'devotion'
-  } else if (newClass === 'clerc') {
-    selectedSubclass.value = 'vie'
-  } else {
-    selectedSubclass.value = ''
-  }
-})
-
-// --- EFFET 2 : CHARGEMENT API ---
-async function fetchSpells() {
-  isLoading.value = true
-  error.value = null
-  spellsList.value = []
-
-  try {
-    const data = await $fetch<Spell[]>(`/api/spells`, {
-      params: { class: selectedClass.value },
-    })
-    spellsList.value = data
-  } catch (err) {
-    console.error(err)
-    error.value = 'La connexion avec la trame magique est perturbée...'
-  } finally {
-    isLoading.value = false
-  }
-}
-
-watch(selectedClass, () => fetchSpells(), { immediate: true })
-
-// --- LOGIQUE MÉTIER ---
-
-// 1. Calcul des emplacements de sorts
-const slotsConfig = computed(() => getSlotsForClass(selectedClass.value, playerLevel.value))
-const availableLevels = computed(() => Object.keys(slotsConfig.value).map(Number))
-const maxSpellLevel = computed(() => availableLevels.value.length > 0 ? Math.max(...availableLevels.value) : 0)
-
-// 2. Récupération des données de Sous-classe (Domaine ou Serment)
-const subClassDataList = computed<(DomainData | OathData)[]>(() => {
-  if (selectedClass.value === 'clerc') return Object.values(domains.value ?? {})
-  if (selectedClass.value === 'paladin') return Object.values(oaths.value ?? {})
-  return []
-})
-
-const subclassLabel = computed(() => {
-  if (selectedClass.value === 'clerc') return 'Domaine Divin'
-  if (selectedClass.value === 'paladin') return 'Serment Sacré'
-  return 'Domaine'
-})
-
-const subclassDesc = computed(() => {
-  if (selectedClass.value === 'clerc') {
-    return (domains.value ?? {})[selectedSubclass.value]?.description || ''
-  }
-  if (selectedClass.value === 'paladin') {
-    return (oaths.value ?? {})[selectedSubclass.value]?.description || ''
-  }
-  return ''
-})
-
-const subclassSpellsList = computed(() => {
-  let spells: Spell[] = []
-  let currentData: DomainData | OathData | undefined
-
-  if (selectedClass.value === 'clerc') {
-    currentData = (domains.value ?? {})[selectedSubclass.value]
-  } else if (selectedClass.value === 'paladin') {
-    currentData = (oaths.value ?? {})[selectedSubclass.value]
-  }
-
-  if (currentData) {
-    Object.entries(currentData.spells).forEach(([levelReq, ids]) => {
-      if (playerLevel.value >= Number(levelReq)) {
-        const found = spellsList.value.filter(s => ids.includes(s.id))
-        spells.push(...found)
-      }
-    })
-  }
-
-  // Déduplication
-  return Array.from(new Map(spells.map(s => [s.id, s])).values())
-})
-
-// 3. Calcul de la Limite de Sorts Préparés
-const isKnownCaster = computed(() => ['barde', 'ensorceleur', 'occultiste'].includes(selectedClass.value.toLowerCase()))
-
-const maxPreparedSpells = computed(() => {
-  const c = selectedClass.value.toLowerCase()
-  if (isKnownCaster.value) {
-    const table = SPELLS_KNOWN_BY_CLASS[c]
-    return table ? table[playerLevel.value - 1] : 0
-  } else if (c === 'paladin') {
-    const val = Math.floor(playerLevel.value / 2) + abilityMod.value
-    return val < 1 ? 1 : val
-  } else {
-    return playerLevel.value + abilityMod.value
-  }
-})
-
-const currentLeveledCount = computed(() => preparedSpells.value.filter(s => s.level > 0).length)
-const isFull = computed(() => currentLeveledCount.value >= maxPreparedSpells.value)
-
-// 4. Filtrage de la Bibliothèque
-const availableSpells = computed(() => {
-  return spellsList.value
-    .filter(s => {
-      const isLevelOk = s.level === 0 || s.level <= maxSpellLevel.value
-      const isNotPrepared = !preparedSpells.value.find(p => p.id === s.id)
-      const isNotSubclass = !subclassSpellsList.value.find(d => d.id === s.id)
-      const isNameMatch = s.nameFr.toLowerCase().includes(searchQuery.value.toLowerCase())
-      return isLevelOk && isNotPrepared && isNotSubclass && isNameMatch
-    })
-    .sort((a, b) => a.level - b.level || a.nameFr.localeCompare(b.nameFr))
-})
-
-// 5. Tri des sorts du Grimoire
-const myCantrips = computed(() =>
-  preparedSpells.value
-    .filter(s => s.level === 0)
-    .sort((a, b) => a.nameFr.localeCompare(b.nameFr))
-)
-
-const myLeveledSpells = computed(() =>
-  preparedSpells.value
-    .filter(s => s.level > 0)
-    .sort((a, b) => a.level - b.level || a.nameFr.localeCompare(b.nameFr))
-)
-
-// --- GESTIONNAIRES D'ACTIONS ---
-function addSpell(s: Spell) {
-  if (s.level > 0 && isFull.value) return
-  preparedSpells.value = [...preparedSpells.value, s]
-}
-
-function removeSpell(id: string) {
-  preparedSpells.value = preparedSpells.value.filter(s => s.id !== id)
-}
-
-// Gestionnaires de Survol (Tooltip)
-function handleSpellEnter(e: MouseEvent, spell: Spell, side: 'left' | 'right') {
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  tooltipPos.value = { x: side === 'right' ? rect.right : rect.left, y: rect.top }
-  tooltipSide.value = side
-  hoveredSpell.value = spell
-}
-
-function handleSpellLeave() {
-  hoveredSpell.value = null
-  tooltipPos.value = null
-}
+// Afficher connexion (true) ou inscription (false)
+const isLoginForm = ref(true)
 </script>
 
 <template>
-  <div class="min-h-screen font-sans text-dnd-parchment">
-    <Navbar :selected-class="selectedClass" @select-class="selectedClass = $event" />
+  <div class="min-h-screen font-sans text-dnd-parchment flex flex-col">
+    <header class="fixed top-0 left-0 w-full z-50 bg-dnd-dark/95 backdrop-blur-md border-b border-dnd-gold/30 shadow-lg">
+      <div class="w-full max-w-6xl mx-auto px-4 h-16 md:h-20 flex items-center">
+        <span class="font-serif text-dnd-gold font-bold text-xl tracking-widest border border-dnd-gold/50 px-2 py-1 rounded select-none">
+          D&amp;D
+        </span>
+      </div>
+    </header>
 
-    <main class="relative w-full overflow-x-hidden pt-24 pb-12 px-2 md:px-6">
-      <div class="max-w-[1600px] mx-auto">
-        <!-- HEADER -->
-        <div class="backdrop-blur-sm bg-dnd-leather/30 border-y-4 border-double border-dnd-gold/40 rounded-xl p-6 relative mb-8">
-          <header class="text-center relative">
-            <h1 class="text-4xl md:text-5xl font-serif font-bold text-dnd-gold tracking-widest uppercase">
-              Grimoire <span class="text-dnd-red">Arcanique</span>
-            </h1>
-            <div class="mt-2 text-dnd-parchment/60 font-serif text-lg uppercase tracking-widest">
-              — {{ selectedClass }} &bull; Niv {{ playerLevel }} —
-            </div>
-          </header>
+    <main class="flex-1 pt-24 pb-12 px-4 md:px-8">
+      <div class="max-w-md mx-auto">
+        <!-- Titre principal -->
+        <h1 class="font-serif font-bold text-4xl md:text-5xl text-dnd-gold tracking-widest uppercase mb-4 text-center">
+          Grimoire <span class="text-dnd-red">Arcanique</span>
+        </h1>
+        <p class="text-dnd-parchment/80 font-serif text-lg tracking-wide mb-10 text-center">
+          Gérez vos emplacements de sorts et votre grimoire pour vos parties de <strong>Donjons &amp; Dragons</strong>.
+        </p>
 
-          <div class="mt-6 flex flex-col items-center gap-4">
-            <LevelSelector :current-level="playerLevel" @level-change="playerLevel = $event" />
-
-            <!-- SÉLECTEUR SOUS-CLASSE (Si pertinent) -->
-            <div
-              v-if="selectedClass === 'clerc' || selectedClass === 'paladin'"
-              class="flex flex-col items-center gap-2 animate-fadeIn mt-2"
-            >
-              <label class="text-dnd-gold-dim text-[10px] uppercase tracking-[0.2em]">
-                {{ subclassLabel }}
-              </label>
-
-              <div class="relative group min-w-[250px]">
-                <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-dnd-gold/70 group-hover:text-dnd-gold transition-colors text-xs">▼</div>
-                <select
-                  v-model="selectedSubclass"
-                  style="color-scheme: dark"
-                  class="appearance-none w-full bg-black/60 border border-dnd-gold/30 text-dnd-gold font-serif text-lg py-2 pl-4 pr-10 rounded shadow-inner focus:outline-none focus:border-dnd-gold focus:ring-1 focus:ring-dnd-gold/50 cursor-pointer hover:bg-dnd-gold/5 transition-all text-center"
-                >
-                  <option
-                    v-for="item in subClassDataList"
-                    :key="item.id"
-                    :value="item.id"
-                    class="bg-[#1a1510] text-dnd-parchment py-2"
-                  >
-                    {{ item.label }}
-                  </option>
-                </select>
-              </div>
-              <p class="text-[11px] text-dnd-gold-dim/60 italic max-w-md text-center leading-tight mt-1 min-h-[1.5em]">
-                {{ subclassDesc }}
-              </p>
-            </div>
-
-            <div
-              v-if="!isKnownCaster"
-              class="flex items-center gap-3 text-dnd-parchment font-serif bg-black/40 px-4 py-2 rounded-full border border-dnd-gold/20 mt-2"
-            >
-              <span class="text-dnd-gold-dim text-xs uppercase tracking-wider mr-2">Mod. Caractéristique</span>
-              <button
-                class="w-6 h-6 flex items-center justify-center hover:text-dnd-gold hover:bg-white/10 rounded"
-                @click="abilityMod = Math.max(0, abilityMod - 1)"
-              >-</button>
-              <span class="w-6 text-center font-bold text-dnd-gold text-lg">+{{ abilityMod }}</span>
-              <button
-                class="w-6 h-6 flex items-center justify-center hover:text-dnd-gold hover:bg-white/10 rounded"
-                @click="abilityMod = Math.min(10, abilityMod + 1)"
-              >+</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <!-- 1. GAUCHE : MON GRIMOIRE -->
-          <div class="lg:col-span-3 flex flex-col h-[calc(100vh-280px)] min-h-[500px] backdrop-blur-md bg-dnd-parchment/5 border-2 border-dnd-gold/30 rounded-xl overflow-hidden relative order-2 lg:order-1 sticky top-28 z-30">
-            <div class="bg-dnd-leather/80 p-3 border-b border-dnd-gold/40 sticky top-0 z-10 text-center">
-              <h3 class="text-dnd-gold font-serif font-bold">Mon Grimoire</h3>
-            </div>
-
-            <div class="flex-1 overflow-y-auto overflow-x-hidden p-2 custom-scrollbar space-y-4">
-              <!-- Section SORTS DE SOUS-CLASSE -->
-              <div v-if="subclassSpellsList.length > 0">
-                <h4 class="text-xs font-bold text-dnd-gold bg-dnd-gold/5 border border-dnd-gold/20 py-1 px-2 rounded uppercase tracking-widest mb-2 flex justify-between items-center">
-                  <span>✦ {{ selectedClass === 'paladin' ? 'Serment' : 'Domaine' }}</span>
-                  <span class="text-[10px] opacity-70 italic">Toujours Prêts</span>
-                </h4>
-                <div class="space-y-1 mb-4">
-                  <SpellItem
-                    v-for="spell in subclassSpellsList"
-                    :key="spell.id"
-                    :spell="spell"
-                    action-icon="✦"
-                    @action="() => {}"
-                    @spell-enter="(e, s) => handleSpellEnter(e, s, 'right')"
-                    @spell-leave="handleSpellLeave"
-                  />
-                </div>
-                <div class="border-b border-dnd-gold/10 mx-4 mb-2" />
-              </div>
-
-              <!-- Cantrips (Tours de magie) -->
-              <div v-if="myCantrips.length > 0">
-                <h4 class="text-xs font-bold text-dnd-gold-dim uppercase tracking-widest mb-2 px-2 flex justify-between items-center">
-                  <span>Cantrips</span>
-                  <span class="bg-dnd-gold/10 px-1.5 rounded">{{ myCantrips.length }}</span>
-                </h4>
-                <div class="space-y-1">
-                  <SpellItem
-                    v-for="spell in myCantrips"
-                    :key="spell.id"
-                    :spell="spell"
-                    action-icon="✕"
-                    @action="removeSpell(spell.id)"
-                    @spell-enter="(e, s) => handleSpellEnter(e, s, 'right')"
-                    @spell-leave="handleSpellLeave"
-                  />
-                </div>
-              </div>
-
-              <!-- Sorts Préparés (Niveau 1+) -->
+        <!-- Une seule carte : Connexion OU Inscription -->
+        <div class="backdrop-blur-sm bg-dnd-leather/30 border-2 border-dnd-gold/40 rounded-2xl p-8 shadow-xl">
+          <!-- Connexion -->
+          <template v-if="isLoginForm">
+            <h2 class="font-serif text-dnd-gold font-bold text-xl tracking-widest uppercase mb-6 text-center">
+              Connexion
+            </h2>
+            <form class="space-y-4" @submit.prevent>
               <div>
-                <h4
-                  :class="[
-                    'text-xs font-bold py-1 rounded uppercase tracking-widest mb-2 px-2 border flex justify-between items-center shadow-sm transition-colors',
-                    isFull ? 'text-dnd-parchment bg-dnd-red/40 border-dnd-red/60' : 'text-dnd-parchment bg-dnd-red/20 border-dnd-red/30',
-                  ]"
-                >
-                  <span>Préparés</span>
-                  <span :class="['px-1.5 rounded text-white', isFull ? 'bg-dnd-red' : 'bg-dnd-red/40']">
-                    {{ currentLeveledCount }} / {{ maxPreparedSpells }}
-                  </span>
-                </h4>
-                <div v-if="myLeveledSpells.length === 0" class="text-center opacity-30 text-xs italic">Aucun...</div>
-                <div class="space-y-1">
-                  <SpellItem
-                    v-for="spell in myLeveledSpells"
-                    :key="spell.id"
-                    :spell="spell"
-                    action-icon="✕"
-                    @action="removeSpell(spell.id)"
-                    @spell-enter="(e, s) => handleSpellEnter(e, s, 'right')"
-                    @spell-leave="handleSpellLeave"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 2. CENTRE : RESSOURCES -->
-          <div class="lg:col-span-6 order-1 lg:order-2 flex flex-col">
-            <div class="h-full backdrop-blur-sm bg-black/20 border border-dnd-gold/10 rounded-xl p-4 md:p-8 flex flex-col">
-              <h3 class="text-center font-serif text-dnd-gold text-2xl mb-6 tracking-widest flex-shrink-0">
-                RESSOURCES
-              </h3>
-              <div class="flex-1">
-                <SpellSlotsGrid :player-level="playerLevel" :player-class="selectedClass" />
-                <ChannelDivinity
-                  :player-level="playerLevel"
-                  :player-class="selectedClass"
-                  :selected-subclass="selectedSubclass"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- 3. DROITE : BIBLIOTHÈQUE API -->
-          <div class="lg:col-span-3 flex flex-col h-[calc(100vh-280px)] min-h-[500px] backdrop-blur-md bg-dnd-dark/40 border-2 border-dnd-gold/20 rounded-xl overflow-hidden relative order-3 sticky top-28 z-30">
-            <div class="bg-dnd-dark/90 p-3 border-b border-dnd-gold/20 sticky top-0 z-10 flex items-center gap-3">
-              <h3 class="text-dnd-gold-dim font-serif font-bold hidden xl:block">📚</h3>
-              <div class="relative flex-1">
+                <label for="email" class="block text-dnd-gold-dim text-sm font-serif uppercase tracking-wider mb-1">
+                  Email
+                </label>
                 <input
-                  v-model="searchQuery"
-                  type="text"
-                  placeholder="Rechercher..."
-                  class="w-full bg-black/40 border border-dnd-gold/30 rounded px-2 py-1 text-sm text-dnd-parchment focus:outline-none focus:border-dnd-gold/80 placeholder:text-dnd-parchment/20 transition-colors"
+                  id="email"
+                  v-model="email"
+                  type="email"
+                  placeholder="votre@email.com"
+                  class="w-full bg-black/40 border border-dnd-gold/30 rounded px-4 py-2.5 text-dnd-parchment placeholder:text-dnd-parchment/30 focus:outline-none focus:border-dnd-gold focus:ring-1 focus:ring-dnd-gold/50"
                 />
-                <button
-                  v-if="searchQuery"
-                  class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-dnd-gold-dim hover:text-white"
-                  @click="searchQuery = ''"
-                >✕</button>
               </div>
-            </div>
-
-            <div class="flex-1 overflow-y-auto overflow-x-hidden p-2 custom-scrollbar space-y-1">
-              <!-- Loading -->
-              <div v-if="isLoading" class="flex flex-col items-center justify-center mt-20 opacity-70">
-                <div class="w-8 h-8 border-4 border-dnd-gold/30 border-t-dnd-gold rounded-full animate-spin mb-4" />
-                <p class="text-xs text-dnd-gold tracking-widest uppercase">Incantation...</p>
+              <div>
+                <label for="password" class="block text-dnd-gold-dim text-sm font-serif uppercase tracking-wider mb-1">
+                  Mot de passe
+                </label>
+                <input
+                  id="password"
+                  v-model="password"
+                  type="password"
+                  placeholder="••••••••"
+                  class="w-full bg-black/40 border border-dnd-gold/30 rounded px-4 py-2.5 text-dnd-parchment placeholder:text-dnd-parchment/30 focus:outline-none focus:border-dnd-gold focus:ring-1 focus:ring-dnd-gold/50"
+                />
               </div>
+              <button
+                type="submit"
+                class="w-full py-3 rounded border-2 border-dnd-gold bg-dnd-gold/20 text-dnd-gold font-serif font-bold tracking-widest uppercase hover:bg-dnd-gold/30 hover:border-dnd-gold transition-all"
+              >
+                Connexion
+              </button>
+            </form>
+          </template>
 
-              <!-- Error -->
-              <div v-else-if="error" class="text-center mt-20 px-4">
-                <p class="text-dnd-red font-bold mb-2">⚠ Erreur</p>
-                <p class="text-xs opacity-60 italic">{{ error }}</p>
+          <!-- Inscription -->
+          <template v-else>
+            <h2 class="font-serif text-dnd-gold font-bold text-xl tracking-widest uppercase mb-6 text-center">
+              Créer un compte
+            </h2>
+            <form class="space-y-4" @submit.prevent>
+              <div>
+                <label for="surnom" class="block text-dnd-gold-dim text-sm font-serif uppercase tracking-wider mb-1">
+                  Pseudo
+                </label>
+                <input
+                  id="surnom"
+                  v-model="surnom"
+                  type="text"
+                  placeholder="Votre surnom ou pseudo"
+                  class="w-full bg-black/40 border border-dnd-gold/30 rounded px-4 py-2.5 text-dnd-parchment placeholder:text-dnd-parchment/30 focus:outline-none focus:border-dnd-gold focus:ring-1 focus:ring-dnd-gold/50"
+                />
               </div>
-
-              <!-- Empty -->
-              <div v-else-if="availableSpells.length === 0" class="text-center opacity-30 mt-10 italic text-sm">
-                {{ searchQuery ? 'Aucun sort trouvé...' : 'Aucun sort disponible.' }}
+              <div>
+                <label for="register-email" class="block text-dnd-gold-dim text-sm font-serif uppercase tracking-wider mb-1">
+                  Email
+                </label>
+                <input
+                  id="register-email"
+                  v-model="registerEmail"
+                  type="email"
+                  placeholder="votre@email.com"
+                  class="w-full bg-black/40 border border-dnd-gold/30 rounded px-4 py-2.5 text-dnd-parchment placeholder:text-dnd-parchment/30 focus:outline-none focus:border-dnd-gold focus:ring-1 focus:ring-dnd-gold/50"
+                />
               </div>
+              <div>
+                <label for="register-password" class="block text-dnd-gold-dim text-sm font-serif uppercase tracking-wider mb-1">
+                  Mot de passe
+                </label>
+                <input
+                  id="register-password"
+                  v-model="registerPassword"
+                  type="password"
+                  placeholder="••••••••"
+                  class="w-full bg-black/40 border border-dnd-gold/30 rounded px-4 py-2.5 text-dnd-parchment placeholder:text-dnd-parchment/30 focus:outline-none focus:border-dnd-gold focus:ring-1 focus:ring-dnd-gold/50"
+                />
+              </div>
+              <div>
+                <label for="register-password-confirm" class="block text-dnd-gold-dim text-sm font-serif uppercase tracking-wider mb-1">
+                  Confirmer le mot de passe
+                </label>
+                <input
+                  id="register-password-confirm"
+                  v-model="registerPasswordConfirm"
+                  type="password"
+                  placeholder="••••••••"
+                  class="w-full bg-black/40 border border-dnd-gold/30 rounded px-4 py-2.5 text-dnd-parchment placeholder:text-dnd-parchment/30 focus:outline-none focus:border-dnd-gold focus:ring-1 focus:ring-dnd-gold/50"
+                />
+              </div>
+              <button
+                type="submit"
+                class="w-full py-3 rounded border-2 border-dnd-gold bg-dnd-gold/20 text-dnd-gold font-serif font-bold tracking-widest uppercase hover:bg-dnd-gold/30 hover:border-dnd-gold transition-all"
+              >
+                S'enregistrer
+              </button>
+            </form>
+          </template>
 
-              <!-- Spells list -->
-              <template v-else>
-                <div
-                  v-for="spell in availableSpells"
-                  :key="spell.id"
-                  :class="spell.level > 0 && isFull ? 'opacity-50 grayscale' : ''"
-                >
-                  <SpellItem
-                    :spell="spell"
-                    :action-icon="spell.level > 0 && isFull ? '🔒' : '+'"
-                    @action="!(spell.level > 0 && isFull) && addSpell(spell)"
-                    @spell-enter="(e, s) => handleSpellEnter(e, s, 'left')"
-                    @spell-leave="handleSpellLeave"
-                  />
-                </div>
-              </template>
-            </div>
+          <!-- Bouton pour changer de formulaire -->
+          <div class="mt-6 pt-6 border-t border-dnd-gold/20 text-center">
+            <button
+              type="button"
+              class="text-dnd-gold-dim hover:text-dnd-gold font-serif text-sm tracking-wide transition-colors underline underline-offset-2"
+              @click="isLoginForm = !isLoginForm"
+            >
+              {{ isLoginForm ? "Pas encore de compte ? S'enregistrer" : 'Déjà un compte ? Se connecter' }}
+            </button>
           </div>
 
-          <!-- TOOLTIP FLOTTANT (Global) -->
-          <FloatingTooltip :spell="hoveredSpell" :position="tooltipPos" :side="tooltipSide" />
+          <!-- Explication : à quoi sert la connexion -->
+          <div class="mt-6 pt-6 border-t border-dnd-gold/20">
+            <p class="text-dnd-gold-dim/90 text-sm font-sans leading-relaxed">
+              <span class="text-dnd-gold font-serif font-bold uppercase tracking-wider">À quoi sert la connexion ?</span><br />
+              En vous connectant, vous pourrez <strong class="text-dnd-parchment">sauvegarder vos grimoires</strong> (sorts préparés par personnage), <strong class="text-dnd-parchment">y accéder depuis plusieurs appareils</strong> et retrouver vos préférences à chaque partie. Sans compte, vous pouvez tout de même utiliser le Grimoire en bas de page.
+            </p>
+          </div>
         </div>
+
+        <p class="mt-6 text-dnd-gold-dim/70 text-sm font-sans text-center">
+          Le Grimoire reste accessible via le bouton en bas de page.
+        </p>
       </div>
     </main>
+
+    <AppFooter />
   </div>
 </template>

@@ -39,9 +39,12 @@ watch(
     <div class="w-full max-w-6xl mx-auto px-4">
       <div class="flex items-center h-16 md:h-20 gap-4">
         <div class="hidden md:block flex-shrink-0 mr-4">
-          <span class="font-serif text-dnd-gold font-bold text-xl tracking-widest border border-dnd-gold/50 px-2 py-1 rounded select-none cursor-default hover:bg-dnd-gold/10 transition-colors">
+          <NuxtLink
+            to="/"
+            class="font-serif text-dnd-gold font-bold text-xl tracking-widest border border-dnd-gold/50 px-2 py-1 rounded select-none cursor-pointer hover:bg-dnd-gold/10 transition-colors inline-block"
+          >
             D&amp;D
-          </span>
+          </NuxtLink>
         </div>
 
         <!-- ZONE DE SCROLL -->
