@@ -32,6 +32,30 @@ watch(
     }
   }
 )
+
+// Auth
+const supabase = useSupabaseClient()
+const user = useSupabaseUser()
+const username = ref<string | null>(null)
+
+watch(user, async (u) => {
+  if (!u) { username.value = null; return }
+  const { data } = await supabase
+    .from('profiles')
+    .select('username')
+    .eq('id', u.id)
+    .single()
+  username.value = data?.username ?? null
+}, { immediate: true })
+
+const displayName = computed(() =>
+  username.value || user.value?.email?.split('@')[0] || null
+)
+
+async function handleLogout() {
+  await supabase.auth.signOut()
+  navigateTo('/')
+}
 </script>
 
 <template>
@@ -39,9 +63,12 @@ watch(
     <div class="w-full max-w-6xl mx-auto px-4">
       <div class="flex items-center h-16 md:h-20 gap-4">
         <div class="hidden md:block flex-shrink-0 mr-4">
-          <span class="font-serif text-dnd-gold font-bold text-xl tracking-widest border border-dnd-gold/50 px-2 py-1 rounded select-none cursor-default hover:bg-dnd-gold/10 transition-colors">
+          <NuxtLink
+            to="/"
+            class="font-serif text-dnd-gold font-bold text-xl tracking-widest border border-dnd-gold/50 px-2 py-1 rounded select-none cursor-pointer hover:bg-dnd-gold/10 transition-colors inline-block"
+          >
             D&amp;D
-          </span>
+          </NuxtLink>
         </div>
 
         <!-- ZONE DE SCROLL -->
@@ -67,6 +94,23 @@ watch(
               <span>{{ classe.label }}</span>
             </button>
           </div>
+        </div>
+
+        <!-- ZONE UTILISATEUR -->
+        <div class="flex items-center gap-3 flex-shrink-0 pl-3 border-l border-dnd-gold/20">
+          <span
+            v-if="displayName"
+            class="hidden md:block text-dnd-parchment/50 font-serif text-xs uppercase tracking-wider max-w-[120px] truncate"
+            :title="displayName"
+          >
+            {{ displayName }}
+          </span>
+          <button
+            class="px-3 py-1.5 border border-dnd-gold/20 text-dnd-gold-dim hover:text-dnd-red hover:border-dnd-red/40 hover:bg-dnd-red/10 rounded font-serif text-xs uppercase tracking-wider transition-all duration-200 whitespace-nowrap"
+            @click="handleLogout"
+          >
+            Se déconnecter
+          </button>
         </div>
       </div>
     </div>
