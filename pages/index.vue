@@ -1,4 +1,12 @@
 <script setup lang="ts">
+const user = useSupabaseUser()
+watchEffect(() => {
+  if (user.value) navigateTo('/grimoire')
+})
+
+const supabase = useSupabaseClient()
+
+// Formulaire de connexion
 const email = ref('')
 const password = ref('')
 
@@ -10,10 +18,73 @@ const registerPasswordConfirm = ref('')
 
 // Afficher connexion (true) ou inscription (false)
 const isLoginForm = ref(true)
+
+// État partagé
+const error = ref<string | null>(null)
+const isLoading = ref(false)
+
+watch(isLoginForm, () => { error.value = null })
+
+async function handleLogin() {
+  error.value = null
+  if (!email.value || !password.value) {
+    error.value = "Renseignez votre email et votre mot de passe."
+    return
+  }
+  isLoading.value = true
+  const { error: authError } = await supabase.auth.signInWithPassword({
+    email: email.value,
+    password: password.value,
+  })
+  isLoading.value = false
+  if (authError) {
+    error.value = "Identifiants incorrects. Vérifiez votre email et mot de passe."
+  } else {
+    navigateTo('/grimoire')
+  }
+}
+
+async function handleRegister() {
+  error.value = null
+  if (!surnom.value.trim()) {
+    error.value = "Choisissez un pseudo."
+    return
+  }
+  if (!registerEmail.value || !registerPassword.value) {
+    error.value = "Renseignez tous les champs."
+    return
+  }
+  if (registerPassword.value.length < 6) {
+    error.value = "Le mot de passe doit contenir au moins 6 caractères."
+    return
+  }
+  if (registerPassword.value !== registerPasswordConfirm.value) {
+    error.value = "Les mots de passe ne correspondent pas."
+    return
+  }
+  isLoading.value = true
+  const { data, error: authError } = await supabase.auth.signUp({
+    email: registerEmail.value,
+    password: registerPassword.value,
+  })
+  if (authError) {
+    isLoading.value = false
+    error.value = "Inscription impossible : " + authError.message
+    return
+  }
+  if (data.user) {
+    await supabase.from('profiles').insert({
+      id: data.user.id,
+      username: surnom.value.trim(),
+    })
+  }
+  isLoading.value = false
+  navigateTo('/grimoire')
+}
 </script>
 
 <template>
-  <div class="min-h-screen font-sans text-dnd-parchment flex flex-col">
+  <div class="min-h-screen w-full overflow-x-hidden font-sans text-dnd-parchment flex flex-col">
     <header class="fixed top-0 left-0 w-full z-50 bg-dnd-dark/95 backdrop-blur-md border-b border-dnd-gold/30 shadow-lg">
       <div class="w-full max-w-6xl mx-auto px-4 h-16 md:h-20 flex items-center">
         <span class="font-serif text-dnd-gold font-bold text-xl tracking-widest border border-dnd-gold/50 px-2 py-1 rounded select-none">
@@ -39,7 +110,7 @@ const isLoginForm = ref(true)
             <h2 class="font-serif text-dnd-gold font-bold text-xl tracking-widest uppercase mb-6 text-center">
               Connexion
             </h2>
-            <form class="space-y-4" @submit.prevent>
+            <form class="space-y-4" @submit.prevent="handleLogin">
               <div>
                 <label for="email" class="block text-dnd-gold-dim text-sm font-serif uppercase tracking-wider mb-1">
                   Email
@@ -49,6 +120,7 @@ const isLoginForm = ref(true)
                   v-model="email"
                   type="email"
                   placeholder="votre@email.com"
+                  autocomplete="email"
                   class="w-full bg-black/40 border border-dnd-gold/30 rounded px-4 py-2.5 text-dnd-parchment placeholder:text-dnd-parchment/30 focus:outline-none focus:border-dnd-gold focus:ring-1 focus:ring-dnd-gold/50"
                 />
               </div>
@@ -61,14 +133,20 @@ const isLoginForm = ref(true)
                   v-model="password"
                   type="password"
                   placeholder="••••••••"
+                  autocomplete="current-password"
                   class="w-full bg-black/40 border border-dnd-gold/30 rounded px-4 py-2.5 text-dnd-parchment placeholder:text-dnd-parchment/30 focus:outline-none focus:border-dnd-gold focus:ring-1 focus:ring-dnd-gold/50"
                 />
               </div>
+              <div v-if="error" class="bg-dnd-red/20 border border-dnd-red/40 rounded px-4 py-2 text-dnd-parchment text-sm font-serif">
+                ⚠ {{ error }}
+              </div>
               <button
                 type="submit"
-                class="w-full py-3 rounded border-2 border-dnd-gold bg-dnd-gold/20 text-dnd-gold font-serif font-bold tracking-widest uppercase hover:bg-dnd-gold/30 hover:border-dnd-gold transition-all"
+                :disabled="isLoading"
+                class="w-full py-3 rounded border-2 border-dnd-gold bg-dnd-gold/20 text-dnd-gold font-serif font-bold tracking-widest uppercase hover:bg-dnd-gold/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Connexion
+                <span v-if="isLoading" class="w-4 h-4 border-2 border-dnd-gold/30 border-t-dnd-gold rounded-full animate-spin" />
+                {{ isLoading ? 'Connexion...' : 'Connexion' }}
               </button>
             </form>
           </template>
@@ -78,7 +156,7 @@ const isLoginForm = ref(true)
             <h2 class="font-serif text-dnd-gold font-bold text-xl tracking-widest uppercase mb-6 text-center">
               Créer un compte
             </h2>
-            <form class="space-y-4" @submit.prevent>
+            <form class="space-y-4" @submit.prevent="handleRegister">
               <div>
                 <label for="surnom" class="block text-dnd-gold-dim text-sm font-serif uppercase tracking-wider mb-1">
                   Pseudo
@@ -88,6 +166,7 @@ const isLoginForm = ref(true)
                   v-model="surnom"
                   type="text"
                   placeholder="Votre surnom ou pseudo"
+                  autocomplete="username"
                   class="w-full bg-black/40 border border-dnd-gold/30 rounded px-4 py-2.5 text-dnd-parchment placeholder:text-dnd-parchment/30 focus:outline-none focus:border-dnd-gold focus:ring-1 focus:ring-dnd-gold/50"
                 />
               </div>
@@ -100,6 +179,7 @@ const isLoginForm = ref(true)
                   v-model="registerEmail"
                   type="email"
                   placeholder="votre@email.com"
+                  autocomplete="email"
                   class="w-full bg-black/40 border border-dnd-gold/30 rounded px-4 py-2.5 text-dnd-parchment placeholder:text-dnd-parchment/30 focus:outline-none focus:border-dnd-gold focus:ring-1 focus:ring-dnd-gold/50"
                 />
               </div>
@@ -112,6 +192,7 @@ const isLoginForm = ref(true)
                   v-model="registerPassword"
                   type="password"
                   placeholder="••••••••"
+                  autocomplete="new-password"
                   class="w-full bg-black/40 border border-dnd-gold/30 rounded px-4 py-2.5 text-dnd-parchment placeholder:text-dnd-parchment/30 focus:outline-none focus:border-dnd-gold focus:ring-1 focus:ring-dnd-gold/50"
                 />
               </div>
@@ -124,14 +205,20 @@ const isLoginForm = ref(true)
                   v-model="registerPasswordConfirm"
                   type="password"
                   placeholder="••••••••"
+                  autocomplete="new-password"
                   class="w-full bg-black/40 border border-dnd-gold/30 rounded px-4 py-2.5 text-dnd-parchment placeholder:text-dnd-parchment/30 focus:outline-none focus:border-dnd-gold focus:ring-1 focus:ring-dnd-gold/50"
                 />
               </div>
+              <div v-if="error" class="bg-dnd-red/20 border border-dnd-red/40 rounded px-4 py-2 text-dnd-parchment text-sm font-serif">
+                ⚠ {{ error }}
+              </div>
               <button
                 type="submit"
-                class="w-full py-3 rounded border-2 border-dnd-gold bg-dnd-gold/20 text-dnd-gold font-serif font-bold tracking-widest uppercase hover:bg-dnd-gold/30 hover:border-dnd-gold transition-all"
+                :disabled="isLoading"
+                class="w-full py-3 rounded border-2 border-dnd-gold bg-dnd-gold/20 text-dnd-gold font-serif font-bold tracking-widest uppercase hover:bg-dnd-gold/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                S'enregistrer
+                <span v-if="isLoading" class="w-4 h-4 border-2 border-dnd-gold/30 border-t-dnd-gold rounded-full animate-spin" />
+                {{ isLoading ? 'Inscription...' : "S'enregistrer" }}
               </button>
             </form>
           </template>
