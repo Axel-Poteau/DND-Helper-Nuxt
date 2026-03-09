@@ -33,7 +33,6 @@ watch(
   }
 )
 
-// Auth
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
 const username = ref<string | null>(null)
@@ -71,7 +70,6 @@ async function handleLogout() {
           </NuxtLink>
         </div>
 
-        <!-- ZONE DE SCROLL -->
         <div
           ref="scrollRef"
           class="flex-1 overflow-x-auto min-w-0 py-3 no-scrollbar"
@@ -96,7 +94,6 @@ async function handleLogout() {
           </div>
         </div>
 
-        <!-- ZONE UTILISATEUR -->
         <div class="flex items-center gap-3 flex-shrink-0 pl-3 border-l border-dnd-gold/20">
           <span
             v-if="displayName"

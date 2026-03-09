@@ -6,20 +6,16 @@ watchEffect(() => {
 
 const supabase = useSupabaseClient()
 
-// Formulaire de connexion
 const email = ref('')
 const password = ref('')
 
-// Formulaire d'inscription
 const surnom = ref('')
 const registerEmail = ref('')
 const registerPassword = ref('')
 const registerPasswordConfirm = ref('')
 
-// Afficher connexion (true) ou inscription (false)
 const isLoginForm = ref(true)
 
-// État partagé
 const error = ref<string | null>(null)
 const isLoading = ref(false)
 
@@ -95,7 +91,6 @@ async function handleRegister() {
 
     <main class="flex-1 pt-24 pb-12 px-4 md:px-8">
       <div class="max-w-md mx-auto">
-        <!-- Titre principal -->
         <h1 class="font-serif font-bold text-4xl md:text-5xl text-dnd-gold tracking-widest uppercase mb-4 text-center">
           Grimoire <span class="text-dnd-red">Arcanique</span>
         </h1>
@@ -103,9 +98,7 @@ async function handleRegister() {
           Gérez vos emplacements de sorts et votre grimoire pour vos parties de <strong>Donjons &amp; Dragons</strong>.
         </p>
 
-        <!-- Une seule carte : Connexion OU Inscription -->
         <div class="backdrop-blur-sm bg-dnd-leather/30 border-2 border-dnd-gold/40 rounded-2xl p-8 shadow-xl">
-          <!-- Connexion -->
           <template v-if="isLoginForm">
             <h2 class="font-serif text-dnd-gold font-bold text-xl tracking-widest uppercase mb-6 text-center">
               Connexion
@@ -151,7 +144,6 @@ async function handleRegister() {
             </form>
           </template>
 
-          <!-- Inscription -->
           <template v-else>
             <h2 class="font-serif text-dnd-gold font-bold text-xl tracking-widest uppercase mb-6 text-center">
               Créer un compte
@@ -223,7 +215,6 @@ async function handleRegister() {
             </form>
           </template>
 
-          <!-- Bouton pour changer de formulaire -->
           <div class="mt-6 pt-6 border-t border-dnd-gold/20 text-center">
             <button
               type="button"
@@ -234,7 +225,6 @@ async function handleRegister() {
             </button>
           </div>
 
-          <!-- Explication : à quoi sert la connexion -->
           <div class="mt-6 pt-6 border-t border-dnd-gold/20">
             <p class="text-dnd-gold-dim/90 text-sm font-sans leading-relaxed">
               <span class="text-dnd-gold font-serif font-bold uppercase tracking-wider">À quoi sert la connexion ?</span><br />

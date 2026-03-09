@@ -14,6 +14,20 @@ export interface OathData {
   spells: { [level: number]: string[] }
 }
 
+export interface OriginData {
+  id: string
+  label: string
+  description: string
+  features: { level: number; title: string; description: string }[]
+}
+
+export interface TraditionData {
+  id: string
+  label: string
+  description: string
+  features: { level: number; title: string; description: string }[]
+}
+
 export interface ApiSpell {
   name: string;
   castingTime?: string;

@@ -53,7 +53,7 @@ const arrowTop = computed(() => {
   <div
     v-if="spell && position"
     ref="containerRef"
-    class="fixed z-[9999] pointer-events-none w-[450px] p-5 rounded-xl shadow-2xl bg-[#1a1510]/95 border border-dnd-gold/60 text-dnd-parchment backdrop-blur-xl animate-fadeIn"
+    class="fixed z-[9999] pointer-events-auto w-[450px] p-5 rounded-xl shadow-2xl bg-[#1a1510]/95 border border-dnd-gold/60 text-dnd-parchment backdrop-blur-xl animate-fadeIn"
     :style="{
       top: adjustedTop + 'px',
       left: side === 'right' ? (position.x + 20) + 'px' : 'auto',
@@ -62,7 +62,6 @@ const arrowTop = computed(() => {
       overflow: 'hidden',
     }"
   >
-    <!-- En-tête -->
     <div class="border-b border-dnd-gold/40 pb-3 mb-3">
       <h3 class="font-serif font-bold text-2xl text-dnd-gold leading-none mb-2">
         {{ spell.nameFr }}
@@ -73,20 +72,17 @@ const arrowTop = computed(() => {
       </div>
     </div>
 
-    <!-- Détails techniques -->
     <div class="grid grid-cols-2 gap-y-2 text-xs text-dnd-parchment/80 mb-4 font-mono border-b border-dnd-gold/10 pb-3">
       <div><span class="text-dnd-gold font-bold">Temps:</span> {{ spell.castingTime }}</div>
       <div><span class="text-dnd-gold font-bold">Durée:</span> {{ spell.duration }}</div>
       <div class="col-span-2"><span class="text-dnd-gold font-bold">Portée:</span> {{ spell.range }}</div>
     </div>
 
-    <!-- Description avec HTML -->
     <div
       class="text-sm text-justify leading-relaxed opacity-95 relative [&_strong]:text-dnd-gold [&_strong]:font-bold [&_em]:text-dnd-parchment/70 [&_em]:italic [&_p]:mb-2 [&_br]:block [&_br]:content-[''] [&_br]:mt-2"
       v-html="spell.descriptionFr"
     />
 
-    <!-- Flèche décorative -->
     <div
       :class="[
         'absolute w-4 h-4 bg-[#1a1510] border-t border-l border-dnd-gold/60 transform rotate-45 transition-all duration-75',
