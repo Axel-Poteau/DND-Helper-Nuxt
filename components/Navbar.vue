@@ -9,11 +9,8 @@ const emit = defineEmits<{
 
 const CLASSES = [
   { id: 'clerc', label: 'Clerc', icon: '✨' },
-  { id: 'barde', label: 'Barde', icon: '🎵' },
-  { id: 'druide', label: 'Druide', icon: '🌿' },
   { id: 'ensorceleur', label: 'Ensorceleur', icon: '🔥' },
   { id: 'magicien', label: 'Magicien', icon: '🔮' },
-  { id: 'occultiste', label: 'Occultiste', icon: '👁️' },
   { id: 'paladin', label: 'Paladin', icon: '🛡️' },
 ]
 
