@@ -28,6 +28,26 @@ export interface Database {
         Insert: { oath_id: string; level: number; spell_slug: string }
         Update: { oath_id?: string; level?: number; spell_slug?: string }
       }
+      origins: {
+        Row:    { id: string; label: string; description: string }
+        Insert: { id: string; label: string; description: string }
+        Update: { id?: string; label?: string; description?: string }
+      }
+      origin_features: {
+        Row:    { id: number; origin_id: string; level: number; title: string; description: string; sort_order: number }
+        Insert: { origin_id: string; level: number; title: string; description: string; sort_order?: number }
+        Update: { origin_id?: string; level?: number; title?: string; description?: string; sort_order?: number }
+      }
+      traditions: {
+        Row:    { id: string; label: string; description: string }
+        Insert: { id: string; label: string; description: string }
+        Update: { id?: string; label?: string; description?: string }
+      }
+      tradition_features: {
+        Row:    { id: number; tradition_id: string; level: number; title: string; description: string; sort_order: number }
+        Insert: { tradition_id: string; level: number; title: string; description: string; sort_order?: number }
+        Update: { tradition_id?: string; level?: number; title?: string; description?: string; sort_order?: number }
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
