@@ -3,6 +3,54 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export interface Database {
   public: {
     Tables: {
+      profiles: {
+        Row:    { id: string; username: string; is_premium: boolean }
+        Insert: { id: string; username: string; is_premium?: boolean }
+        Update: { username?: string; is_premium?: boolean }
+      }
+      characters: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          class: string
+          level: number
+          subclass: string
+          ability_mod: number
+          avatar: string
+          prepared_spell_ids: Json
+          current_slots: Json
+          sorcery_points: number | null
+          channel_divinity_uses: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          name: string
+          class: string
+          level?: number
+          subclass?: string
+          ability_mod?: number
+          avatar?: string
+          prepared_spell_ids?: Json
+          current_slots?: Json
+          sorcery_points?: number | null
+          channel_divinity_uses?: number | null
+        }
+        Update: {
+          name?: string
+          class?: string
+          level?: number
+          subclass?: string
+          ability_mod?: number
+          avatar?: string
+          prepared_spell_ids?: Json
+          current_slots?: Json
+          sorcery_points?: number | null
+          channel_divinity_uses?: number | null
+        }
+      }
       domains: {
         Row:    { id: string; label: string; description: string }
         Insert: { id: string; label: string; description: string }
