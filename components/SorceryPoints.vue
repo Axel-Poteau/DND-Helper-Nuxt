@@ -20,12 +20,14 @@ const SLOT_CREATION_COST: Record<number, number> = {
 const isSorcerer = computed(() => props.playerClass.toLowerCase() === 'ensorceleur')
 const maxPoints = computed(() => isSorcerer.value ? SORCERY_POINTS_BY_LEVEL[props.playerLevel - 1] : 0)
 
-const pointsLeft = ref(0)
+const pointsLeft = defineModel<number | null>('sorceryPoints', { default: null })
 
 watch(
   () => [props.playerLevel, props.playerClass],
   () => {
-    pointsLeft.value = maxPoints.value
+    if (pointsLeft.value === null) {
+      pointsLeft.value = maxPoints.value
+    }
   },
   { immediate: true }
 )
@@ -50,7 +52,7 @@ watch(
         <div class="flex items-center gap-3">
           <button
             class="w-8 h-8 flex items-center justify-center rounded border border-dnd-gold/30 text-dnd-gold hover:bg-dnd-gold/10 transition-colors text-lg font-bold"
-            @click="pointsLeft = Math.max(0, pointsLeft - 1)"
+            @click="pointsLeft = Math.max(0, (pointsLeft ?? 0) - 1)"
           >
             -
           </button>
@@ -60,7 +62,7 @@ watch(
           </div>
           <button
             class="w-8 h-8 flex items-center justify-center rounded border border-dnd-gold/30 text-dnd-gold hover:bg-dnd-gold/10 transition-colors text-lg font-bold"
-            @click="pointsLeft = Math.min(maxPoints, pointsLeft + 1)"
+            @click="pointsLeft = Math.min(maxPoints, (pointsLeft ?? 0) + 1)"
           >
             +
           </button>

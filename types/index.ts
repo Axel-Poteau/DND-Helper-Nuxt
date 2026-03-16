@@ -61,3 +61,39 @@ export interface Spell {
   classes: string[];
   descriptionFr: string;
 }
+
+export interface Character {
+  id: string
+  user_id: string
+  name: string
+  class: string
+  level: number
+  subclass: string
+  ability_mod: number
+  avatar: string
+  prepared_spell_ids: string[]
+  current_slots: number[]
+  sorcery_points: number | null
+  channel_divinity_uses: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CharacterCreate {
+  name: string
+  class: string
+  level: number
+  subclass: string
+  ability_mod: number
+  avatar: string
+}
+
+export interface CharacterSessionState {
+  level: number
+  subclass: string
+  ability_mod: number
+  prepared_spell_ids: string[]
+  current_slots: number[]
+  sorcery_points: number | null
+  channel_divinity_uses: number | null
+}

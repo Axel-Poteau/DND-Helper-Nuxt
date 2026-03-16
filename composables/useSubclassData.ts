@@ -9,7 +9,7 @@ function groupSpellsByLevel(rows: { level: number; spell_slug: string }[]): { [l
 }
 
 export function useSubclassData() {
-  const supabase = useSupabaseClient()
+  const supabase = useSupabaseClient() as any
 
   const { data: domains } = useAsyncData('domains', async () => {
     const { data } = await supabase

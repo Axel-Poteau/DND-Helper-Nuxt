@@ -7,7 +7,7 @@ const props = defineProps<{
   selectedSubclass: string
 }>()
 
-const usesLeft = ref(0)
+const usesLeft = defineModel<number | null>('channelDivinityUses', { default: null })
 
 const maxUses = computed(() => {
   const pClass = props.playerClass.toLowerCase()
@@ -28,7 +28,9 @@ const maxUses = computed(() => {
 })
 
 watch(maxUses, (val) => {
-  usesLeft.value = val
+  if (usesLeft.value === null) {
+    usesLeft.value = val
+  }
 }, { immediate: true })
 
 const features = computed(() => {
@@ -103,6 +105,7 @@ const features = computed(() => {
 })
 
 function toggleCharge(index: number) {
+  if (usesLeft.value == null) return
   const isAvailable = index < usesLeft.value
   if (isAvailable) {
     usesLeft.value--
@@ -136,11 +139,11 @@ function toggleCharge(index: number) {
           :key="i"
           :class="[
             'w-12 h-12 rounded-full border-2 flex items-center justify-center text-2xl transition-all duration-300',
-            i < usesLeft
+            i < (usesLeft ?? 0)
               ? 'bg-dnd-gold/20 border-dnd-gold text-dnd-gold shadow-[0_0_15px_rgba(218,165,32,0.4)] scale-100 hover:scale-105'
               : 'bg-black/40 border-dnd-gold/20 text-dnd-gold/10 scale-95 grayscale',
           ]"
-          :title="i < usesLeft ? 'Utiliser une charge' : 'Restaurer une charge'"
+          :title="i < (usesLeft ?? 0) ? 'Utiliser une charge' : 'Restaurer une charge'"
           @click="toggleCharge(i)"
         >
           ☀

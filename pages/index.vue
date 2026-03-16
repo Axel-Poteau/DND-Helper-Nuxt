@@ -1,10 +1,12 @@
 <script setup lang="ts">
 const user = useSupabaseUser()
+const isRegistering = ref(false)
+
 watchEffect(() => {
-  if (user.value) navigateTo('/grimoire')
+  if (user.value && !isRegistering.value) navigateTo('/dashboard')
 })
 
-const supabase = useSupabaseClient()
+const supabase = useSupabaseClient() as any
 
 // Formulaire de connexion
 const email = ref('')
@@ -40,7 +42,7 @@ async function handleLogin() {
   if (authError) {
     error.value = "Identifiants incorrects. Vérifiez votre email et mot de passe."
   } else {
-    navigateTo('/grimoire')
+    navigateTo('/dashboard')
   }
 }
 
@@ -63,12 +65,14 @@ async function handleRegister() {
     return
   }
   isLoading.value = true
+  isRegistering.value = true
   const { data, error: authError } = await supabase.auth.signUp({
     email: registerEmail.value,
     password: registerPassword.value,
   })
   if (authError) {
     isLoading.value = false
+    isRegistering.value = false
     error.value = "Inscription impossible : " + authError.message
     return
   }
@@ -79,7 +83,8 @@ async function handleRegister() {
     })
   }
   isLoading.value = false
-  navigateTo('/grimoire')
+  isRegistering.value = false
+  navigateTo('/dashboard')
 }
 </script>
 
