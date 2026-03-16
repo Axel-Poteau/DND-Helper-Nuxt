@@ -1,8 +1,5 @@
-// utils/spellProgression.ts
-
 type SlotsConfig = { [level: number]: number };
 
-// 1. FULL CASTERS (Barde, Clerc, Druide, Ensorceleur, Magicien)
 const FULL_CASTER_TABLE: SlotsConfig[] = [
   {}, 
   { 1: 2 },
@@ -27,11 +24,10 @@ const FULL_CASTER_TABLE: SlotsConfig[] = [
   { 1: 4, 2: 3, 3: 3, 4: 3, 5: 3, 6: 2, 7: 2, 8: 1, 9: 1 },
 ];
 
-// 2. HALF CASTERS (Paladin)
 const HALF_CASTER_TABLE: SlotsConfig[] = [
-  {}, 
-  {}, // Niv 1 : Rien
-  { 1: 2 }, // Niv 2 : Début
+  {},
+  {},
+  { 1: 2 },
   { 1: 3 },
   { 1: 3 },
   { 1: 4, 2: 2 },
@@ -52,7 +48,6 @@ const HALF_CASTER_TABLE: SlotsConfig[] = [
   { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2 },
 ];
 
-// 3. PACT MAGIC (Occultiste / Warlock)
 const WARLOCK_TABLE: SlotsConfig[] = [
   {},
   { 1: 1 },
@@ -80,8 +75,7 @@ const WARLOCK_TABLE: SlotsConfig[] = [
 export function getSlotsForClass(className: string, level: number): SlotsConfig {
   const c = className.toLowerCase();
   
-  // Mapping spécifique pour ta liste
-  if (c === 'occultiste') { 
+  if (c === 'occultiste') {
     return WARLOCK_TABLE[level] || {};
   }
   
@@ -89,6 +83,5 @@ export function getSlotsForClass(className: string, level: number): SlotsConfig 
     return HALF_CASTER_TABLE[level] || {};
   }
   
-  // Tous les autres (Barde, Clerc, Druide, Ensorceleur, Magicien) sont Full Caster
   return FULL_CASTER_TABLE[level] || {};
 }

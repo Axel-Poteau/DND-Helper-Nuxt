@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import type { Spell, DomainData, OathData, OriginData, TraditionData } from '~/types'
+import { getSlotsForClass } from '~/utils/spellProgression'
+import { SORCERER_ORIGINS } from '~/data/origins'
+import { WIZARD_TRADITIONS } from '~/data/traditions'
+
+const { domains, oaths } = useSubclassData()
+
+
 import type { Spell, DomainData, OathData } from '~/types'
 import { getSlotsForClass } from '~/utils/spellProgression'
 
@@ -11,13 +19,39 @@ const SPELLS_KNOWN_BY_CLASS: Record<string, number[]> = {
   occultiste:  [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15],
 }
 
-// --- ÉTATS GLOBAUX ---
+
 const playerLevel = ref(1)
 const selectedClass = ref('clerc')
 const preparedSpells = ref<Spell[]>([])
 const abilityMod = ref(3)
 const searchQuery = ref('')
 const selectedSubclass = ref('vie')
+const currentSlots = ref<number[]>([0,0,0,0,0,0,0,0,0])
+
+const spellsList = ref<Spell[]>([])
+const allSpells = ref<Spell[]>([])
+const isLoading = ref(false)
+const error = ref<string | null>(null)
+
+const hoveredSpell = ref<Spell | null>(null)
+const tooltipPos = ref<{ x: number; y: number } | null>(null)
+const tooltipSide = ref<'left' | 'right'>('right')
+const modalSpell = ref<Spell | null>(null)
+const libScrollRef = ref<HTMLDivElement | null>(null)
+let hideTimeout: ReturnType<typeof setTimeout> | null = null
+
+const DEFAULT_SUBCLASS: Record<string, string> = {
+  clerc: 'vie',
+  paladin: 'devotion',
+  ensorceleur: 'draconique',
+  magicien: 'evocation',
+}
+
+watch(selectedClass, (newClass) => {
+  preparedSpells.value = []
+  selectedSubclass.value = DEFAULT_SUBCLASS[newClass] || ''
+})
+
 
 // --- ÉTATS VISUELS & API ---
 const spellsList = ref<Spell[]>([])
@@ -62,6 +96,16 @@ async function fetchSpells() {
 
 watch(selectedClass, () => fetchSpells(), { immediate: true })
 
+async function fetchAllSpells() {
+  try {
+    const data = await $fetch<Spell[]>(`/api/spells`)
+    allSpells.value = data
+  } catch (err) {
+    console.error('Erreur chargement sorts global:', err)
+  }
+}
+fetchAllSpells()
+
 // --- LOGIQUE MÉTIER ---
 
 // 1. Calcul des emplacements de sorts
@@ -69,6 +113,11 @@ const slotsConfig = computed(() => getSlotsForClass(selectedClass.value, playerL
 const availableLevels = computed(() => Object.keys(slotsConfig.value).map(Number))
 const maxSpellLevel = computed(() => availableLevels.value.length > 0 ? Math.max(...availableLevels.value) : 0)
 
+const subClassDataList = computed<(DomainData | OathData | OriginData | TraditionData)[]>(() => {
+  if (selectedClass.value === 'clerc') return Object.values(domains.value ?? {})
+  if (selectedClass.value === 'paladin') return Object.values(oaths.value ?? {})
+  if (selectedClass.value === 'ensorceleur') return Object.values(SORCERER_ORIGINS)
+  if (selectedClass.value === 'magicien') return Object.values(WIZARD_TRADITIONS)
 // 2. Récupération des données de Sous-classe (Domaine ou Serment)
 const subClassDataList = computed<(DomainData | OathData)[]>(() => {
   if (selectedClass.value === 'clerc') return Object.values(domains.value ?? {})
@@ -79,6 +128,9 @@ const subClassDataList = computed<(DomainData | OathData)[]>(() => {
 const subclassLabel = computed(() => {
   if (selectedClass.value === 'clerc') return 'Domaine Divin'
   if (selectedClass.value === 'paladin') return 'Serment Sacré'
+  if (selectedClass.value === 'ensorceleur') return 'Origine Magique'
+  if (selectedClass.value === 'magicien') return 'Tradition Arcane'
+  return ''
   return 'Domaine'
 })
 
@@ -88,6 +140,12 @@ const subclassDesc = computed(() => {
   }
   if (selectedClass.value === 'paladin') {
     return (oaths.value ?? {})[selectedSubclass.value]?.description || ''
+  }
+  if (selectedClass.value === 'ensorceleur') {
+    return SORCERER_ORIGINS[selectedSubclass.value]?.description || ''
+  }
+  if (selectedClass.value === 'magicien') {
+    return WIZARD_TRADITIONS[selectedSubclass.value]?.description || ''
   }
   return ''
 })
@@ -105,11 +163,37 @@ const subclassSpellsList = computed(() => {
   if (currentData) {
     Object.entries(currentData.spells).forEach(([levelReq, ids]) => {
       if (playerLevel.value >= Number(levelReq)) {
+        const found = allSpells.value.filter(s => ids.includes(s.id))
         const found = spellsList.value.filter(s => ids.includes(s.id))
         spells.push(...found)
       }
     })
   }
+
+  return Array.from(new Map(spells.map(s => [s.id, s])).values())
+})
+
+const subclassFeatures = computed(() => {
+  if (selectedClass.value === 'ensorceleur') {
+    return SORCERER_ORIGINS[selectedSubclass.value]?.features || []
+  }
+  if (selectedClass.value === 'magicien') {
+    return WIZARD_TRADITIONS[selectedSubclass.value]?.features || []
+  }
+  return []
+})
+
+const subclassFeaturesTitle = computed(() => {
+  if (selectedClass.value === 'ensorceleur') return 'ORIGINE MAGIQUE'
+  if (selectedClass.value === 'magicien') return 'TRADITION ARCANE'
+  return ''
+})
+
+const subclassFeaturesIcon = computed(() => {
+  if (selectedClass.value === 'ensorceleur') return '🔮'
+  if (selectedClass.value === 'magicien') return '📖'
+  return ''
+})
 
   // Déduplication
   return Array.from(new Map(spells.map(s => [s.id, s])).values())
@@ -132,6 +216,16 @@ const maxPreparedSpells = computed(() => {
 })
 
 const currentLeveledCount = computed(() => preparedSpells.value.filter(s => s.level > 0).length)
+const isFull = computed(() => !isKnownCaster.value && currentLeveledCount.value >= maxPreparedSpells.value)
+
+function isSlotDepleted(spellLevel: number): boolean {
+  if (spellLevel === 0) return false
+  for (let lvl = spellLevel; lvl <= 9; lvl++) {
+    if (currentSlots.value[lvl - 1] > 0) return false
+  }
+  return (slotsConfig.value[spellLevel] || 0) > 0
+}
+
 const isFull = computed(() => currentLeveledCount.value >= maxPreparedSpells.value)
 
 // 4. Filtrage de la Bibliothèque
@@ -170,6 +264,15 @@ function removeSpell(id: string) {
   preparedSpells.value = preparedSpells.value.filter(s => s.id !== id)
 }
 
+function clearHideTimeout() {
+  if (hideTimeout) {
+    clearTimeout(hideTimeout)
+    hideTimeout = null
+  }
+}
+
+function handleSpellEnter(e: MouseEvent, spell: Spell, side: 'left' | 'right') {
+  clearHideTimeout()
 // Gestionnaires de Survol (Tooltip)
 function handleSpellEnter(e: MouseEvent, spell: Spell, side: 'left' | 'right') {
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -179,6 +282,34 @@ function handleSpellEnter(e: MouseEvent, spell: Spell, side: 'left' | 'right') {
 }
 
 function handleSpellLeave() {
+  hideTimeout = setTimeout(() => {
+    hoveredSpell.value = null
+    tooltipPos.value = null
+  }, 150)
+}
+
+function handleTooltipEnter() {
+  clearHideTimeout()
+}
+
+function handleTooltipLeave() {
+  handleSpellLeave()
+}
+
+function spellLevelHeaders(spells: Spell[]) {
+  return [...new Set(spells.map(s => s.level))].sort((a, b) => a - b)
+}
+
+function scrollToLevel(lvl: number) {
+  const el = document.getElementById(`lib-level-${lvl}`)
+  const container = libScrollRef.value
+  if (el && container) {
+    container.scrollTo({ top: el.offsetTop - container.offsetTop, behavior: 'smooth' })
+  }
+}
+
+function getPrevLevel(index: number): number {
+  return index > 0 ? availableSpells.value[index - 1].level : -1
   hoveredSpell.value = null
   tooltipPos.value = null
 }
@@ -204,6 +335,8 @@ function handleSpellLeave() {
           <div class="mt-6 flex flex-col items-center gap-4">
             <LevelSelector :current-level="playerLevel" @level-change="playerLevel = $event" />
 
+            <div
+              v-if="selectedClass === 'clerc' || selectedClass === 'paladin' || selectedClass === 'ensorceleur' || selectedClass === 'magicien'"
             <!-- SÉLECTEUR SOUS-CLASSE (Si pertinent) -->
             <div
               v-if="selectedClass === 'clerc' || selectedClass === 'paladin'"
@@ -254,6 +387,7 @@ function handleSpellLeave() {
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-3 flex flex-col backdrop-blur-md bg-dnd-parchment/5 border-2 border-dnd-gold/30 rounded-xl overflow-hidden relative order-2 lg:order-1 sticky top-28 z-30 lg:max-h-[calc(100vh-140px)]">
           <!-- 1. GAUCHE : MON GRIMOIRE -->
           <div class="lg:col-span-3 flex flex-col h-[calc(100vh-280px)] min-h-[500px] backdrop-blur-md bg-dnd-parchment/5 border-2 border-dnd-gold/30 rounded-xl overflow-hidden relative order-2 lg:order-1 sticky top-28 z-30">
             <div class="bg-dnd-leather/80 p-3 border-b border-dnd-gold/40 sticky top-0 z-10 text-center">
@@ -268,6 +402,21 @@ function handleSpellLeave() {
                   <span class="text-[10px] opacity-70 italic">Toujours Prêts</span>
                 </h4>
                 <div class="space-y-1 mb-4">
+                  <div
+                    v-for="spell in subclassSpellsList"
+                    :key="spell.id"
+                    :class="isSlotDepleted(spell.level) ? 'opacity-40 grayscale relative' : ''"
+                  >
+                    <span v-if="isSlotDepleted(spell.level)" class="absolute right-10 top-1/2 -translate-y-1/2 text-[10px] text-dnd-red/70 z-10">🔒</span>
+                    <SpellItem
+                      :spell="spell"
+                      action-icon="✦"
+                      @action="() => {}"
+                      @spell-enter="(e, s) => handleSpellEnter(e, s, 'right')"
+                      @spell-leave="handleSpellLeave"
+                      @eye-click="modalSpell = $event"
+                    />
+                  </div>
                   <SpellItem
                     v-for="spell in subclassSpellsList"
                     :key="spell.id"
@@ -296,6 +445,7 @@ function handleSpellLeave() {
                     @action="removeSpell(spell.id)"
                     @spell-enter="(e, s) => handleSpellEnter(e, s, 'right')"
                     @spell-leave="handleSpellLeave"
+                    @eye-click="modalSpell = $event"
                   />
                 </div>
               </div>
@@ -308,6 +458,11 @@ function handleSpellLeave() {
                     isFull ? 'text-dnd-parchment bg-dnd-red/40 border-dnd-red/60' : 'text-dnd-parchment bg-dnd-red/20 border-dnd-red/30',
                   ]"
                 >
+                  <span>{{ isKnownCaster ? 'Sorts Connus' : 'Préparés' }}</span>
+                  <span
+                    v-if="!isKnownCaster"
+                    :class="['px-1.5 rounded text-white', isFull ? 'bg-dnd-red' : 'bg-dnd-red/40']"
+                  >
                   <span>Préparés</span>
                   <span :class="['px-1.5 rounded text-white', isFull ? 'bg-dnd-red' : 'bg-dnd-red/40']">
                     {{ currentLeveledCount }} / {{ maxPreparedSpells }}
@@ -315,6 +470,21 @@ function handleSpellLeave() {
                 </h4>
                 <div v-if="myLeveledSpells.length === 0" class="text-center opacity-30 text-xs italic">Aucun...</div>
                 <div class="space-y-1">
+                  <div
+                    v-for="spell in myLeveledSpells"
+                    :key="spell.id"
+                    :class="isSlotDepleted(spell.level) ? 'opacity-40 grayscale relative' : ''"
+                  >
+                    <span v-if="isSlotDepleted(spell.level)" class="absolute right-10 top-1/2 -translate-y-1/2 text-[10px] text-dnd-red/70 z-10">🔒</span>
+                    <SpellItem
+                      :spell="spell"
+                      action-icon="✕"
+                      @action="removeSpell(spell.id)"
+                      @spell-enter="(e, s) => handleSpellEnter(e, s, 'right')"
+                      @spell-leave="handleSpellLeave"
+                      @eye-click="modalSpell = $event"
+                    />
+                  </div>
                   <SpellItem
                     v-for="spell in myLeveledSpells"
                     :key="spell.id"
@@ -336,16 +506,77 @@ function handleSpellLeave() {
                 RESSOURCES
               </h3>
               <div class="flex-1">
+                <SpellSlotsGrid :player-level="playerLevel" :player-class="selectedClass" v-model:current-slots="currentSlots" />
+
                 <SpellSlotsGrid :player-level="playerLevel" :player-class="selectedClass" />
                 <ChannelDivinity
                   :player-level="playerLevel"
                   :player-class="selectedClass"
                   :selected-subclass="selectedSubclass"
                 />
+
+                <div
+                  v-if="selectedClass === 'ensorceleur' && playerLevel >= 2"
+                  class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6 border-t border-dnd-gold/20 pt-6"
+                >
+                  <div>
+                    <SorceryPoints :player-level="playerLevel" :player-class="selectedClass" />
+                    <SubclassFeatures
+                      v-if="subclassFeatures.length > 0"
+                      :player-level="playerLevel"
+                      :features="subclassFeatures"
+                      :title="subclassFeaturesTitle"
+                      :icon="subclassFeaturesIcon"
+                      custom-class="mt-4"
+                    />
+                  </div>
+                  <div>
+                    <Metamagic :player-level="playerLevel" :player-class="selectedClass" />
+                  </div>
+                </div>
+
+                <SubclassFeatures
+                  v-if="selectedClass === 'magicien' && subclassFeatures.length > 0"
+                  :player-level="playerLevel"
+                  :features="subclassFeatures"
+                  :title="subclassFeaturesTitle"
+                  :icon="subclassFeaturesIcon"
+                />
               </div>
             </div>
           </div>
 
+          <div class="lg:col-span-3 flex flex-col backdrop-blur-md bg-dnd-dark/40 border-2 border-dnd-gold/20 rounded-xl overflow-hidden relative order-3 sticky top-28 z-30 lg:max-h-[calc(100vh-140px)]">
+            <div class="bg-dnd-dark/90 border-b border-dnd-gold/20 sticky top-0 z-10">
+              <div class="flex items-center gap-3 px-3 pt-2 pb-1">
+                <h3 class="text-dnd-gold-dim font-serif font-bold hidden xl:block">📚</h3>
+                <div class="relative flex-1">
+                  <input
+                    v-model="searchQuery"
+                    type="text"
+                    placeholder="Rechercher..."
+                    class="w-full bg-black/40 border border-dnd-gold/30 rounded px-2 py-1 text-sm text-dnd-parchment focus:outline-none focus:border-dnd-gold/80 placeholder:text-dnd-parchment/20 transition-colors"
+                  />
+                  <button
+                    v-if="searchQuery"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-dnd-gold-dim hover:text-white"
+                    @click="searchQuery = ''"
+                  >✕</button>
+                </div>
+              </div>
+              <div v-if="availableSpells.length > 0" class="flex flex-wrap gap-1 px-3 pb-2 pt-1">
+                <button
+                  v-for="lvl in spellLevelHeaders(availableSpells)"
+                  :key="lvl"
+                  class="text-[9px] font-bold uppercase tracking-wider text-dnd-gold-dim hover:text-dnd-gold bg-black/30 hover:bg-dnd-gold/10 border border-dnd-gold/15 hover:border-dnd-gold/40 px-2 py-0.5 rounded transition-all cursor-pointer"
+                  @click="scrollToLevel(lvl)"
+                >
+                  {{ lvl === 0 ? 'C' : `N${lvl}` }}
+                </button>
+              </div>
+            </div>
+
+            <div ref="libScrollRef" class="flex-1 overflow-y-auto overflow-x-hidden p-2 custom-scrollbar space-y-1">
           <!-- 3. DROITE : BIBLIOTHÈQUE API -->
           <div class="lg:col-span-3 flex flex-col h-[calc(100vh-280px)] min-h-[500px] backdrop-blur-md bg-dnd-dark/40 border-2 border-dnd-gold/20 rounded-xl overflow-hidden relative order-3 sticky top-28 z-30">
             <div class="bg-dnd-dark/90 p-3 border-b border-dnd-gold/20 sticky top-0 z-10 flex items-center gap-3">
@@ -383,6 +614,29 @@ function handleSpellLeave() {
                 {{ searchQuery ? 'Aucun sort trouvé...' : 'Aucun sort disponible.' }}
               </div>
 
+              <template v-else>
+                <div
+                  v-for="(spell, i) in availableSpells"
+                  :key="spell.id"
+                >
+                  <div
+                    v-if="spell.level !== getPrevLevel(i)"
+                    :id="`lib-level-${spell.level}`"
+                    class="text-[10px] font-bold uppercase tracking-widest text-dnd-gold-dim border-b border-dnd-gold/15 px-2 py-1.5 mt-2"
+                  >
+                    {{ spell.level === 0 ? 'Cantrips' : `Niveau ${spell.level}` }}
+                  </div>
+
+                  <div :class="spell.level > 0 && isFull ? 'opacity-50 grayscale' : ''">
+                    <SpellItem
+                      :spell="spell"
+                      :action-icon="spell.level > 0 && isFull ? '🔒' : '+'"
+                      @action="!(spell.level > 0 && isFull) && addSpell(spell)"
+                      @spell-enter="(e, s) => handleSpellEnter(e, s, 'left')"
+                      @spell-leave="handleSpellLeave"
+                      @eye-click="modalSpell = $event"
+                    />
+                  </div>
               <!-- Spells list -->
               <template v-else>
                 <div
@@ -402,6 +656,17 @@ function handleSpellLeave() {
             </div>
           </div>
 
+          <div class="hidden lg:block">
+            <FloatingTooltip
+              :spell="hoveredSpell"
+              :position="tooltipPos"
+              :side="tooltipSide"
+              @mouseenter="handleTooltipEnter"
+              @mouseleave="handleTooltipLeave"
+            />
+          </div>
+
+          <SpellModal :spell="modalSpell" @close="modalSpell = null" />
           <!-- TOOLTIP FLOTTANT (Global) -->
           <FloatingTooltip :spell="hoveredSpell" :position="tooltipPos" :side="tooltipSide" />
         </div>

@@ -6,6 +6,9 @@ watchEffect(() => {
 
 const supabase = useSupabaseClient()
 
+const email = ref('')
+const password = ref('')
+
 // Formulaire de connexion
 const email = ref('')
 const password = ref('')
@@ -15,6 +18,9 @@ const surnom = ref('')
 const registerEmail = ref('')
 const registerPassword = ref('')
 const registerPasswordConfirm = ref('')
+
+const isLoginForm = ref(true)
+
 
 // Afficher connexion (true) ou inscription (false)
 const isLoginForm = ref(true)
@@ -103,6 +109,7 @@ async function handleRegister() {
           Gérez vos emplacements de sorts et votre grimoire pour vos parties de <strong>Donjons &amp; Dragons</strong>.
         </p>
 
+        <div class="backdrop-blur-sm bg-dnd-leather/30 border-2 border-dnd-gold/40 rounded-2xl p-8 shadow-xl">
         <!-- Une seule carte : Connexion OU Inscription -->
         <div class="backdrop-blur-sm bg-dnd-leather/30 border-2 border-dnd-gold/40 rounded-2xl p-8 shadow-xl">
           <!-- Connexion -->

@@ -35,7 +35,6 @@ const features = computed(() => {
   const result: { name: string; desc: string }[] = []
   const pClass = props.playerClass.toLowerCase()
 
-  // ================== LOGIQUE CLERC ==================
   if (pClass === 'clerc') {
     if (props.playerLevel >= 2) {
       const isDestroy = props.playerLevel >= 5
@@ -91,7 +90,6 @@ const features = computed(() => {
     }
   }
 
-  // ================== LOGIQUE PALADIN ==================
   else if (pClass === 'paladin' && props.playerLevel >= 3) {
     const oathData = (oaths.value ?? {})[props.selectedSubclass]
     if (oathData && oathData.channelDivinity) {
@@ -132,7 +130,6 @@ function toggleCharge(index: number) {
     </div>
 
     <div class="bg-dnd-dark/40 p-4 rounded-lg border border-dnd-gold/10 flex flex-col items-center gap-4">
-      <!-- COMPTEURS (SOLEILS) -->
       <div class="flex gap-4">
         <button
           v-for="(_, i) in maxUses"
@@ -150,12 +147,10 @@ function toggleCharge(index: number) {
         </button>
       </div>
 
-      <!-- Texte informatif charges -->
       <div class="text-[10px] text-dnd-parchment/40 uppercase tracking-widest mb-2">
         {{ usesLeft }} / {{ maxUses }} Utilisations disponibles
       </div>
 
-      <!-- LISTE DES EFFETS DISPONIBLES -->
       <div class="w-full space-y-3 mt-2">
         <div
           v-for="(feat, idx) in features"

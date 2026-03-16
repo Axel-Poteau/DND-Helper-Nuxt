@@ -10,6 +10,7 @@ const emit = defineEmits<{
   action: []
   spellEnter: [e: MouseEvent, spell: Spell]
   spellLeave: []
+  eyeClick: [spell: Spell]
 }>()
 
 const isAddMode = computed(() => props.actionIcon === '+')
@@ -69,6 +70,12 @@ function handleMouseEnter(e: MouseEvent) {
         </div>
       </div>
     </div>
+
+    <button
+      class="lg:hidden w-7 h-7 flex items-center justify-center rounded hover:bg-dnd-gold/20 text-dnd-gold/50 hover:text-dnd-gold transition-all pointer-events-auto mr-1"
+      title="Voir les détails"
+      @click.stop="emit('eyeClick', spell)"
+    >👁</button>
 
     <div v-if="isAddMode && !isLocked" class="text-dnd-gold/50 text-xl font-light group-hover:text-dnd-gold transition-colors">+</div>
     <div v-if="isLocked" class="text-dnd-red/50 text-xs">🔒</div>
