@@ -6,11 +6,19 @@ import { WIZARD_TRADITIONS } from '~/data/traditions'
 
 const { domains, oaths } = useSubclassData()
 
+
+import type { Spell, DomainData, OathData } from '~/types'
+import { getSlotsForClass } from '~/utils/spellProgression'
+
+const { domains, oaths } = useSubclassData()
+
+// Table des sorts connus pour les classes spontanées (Barde, Ensorceleur...)
 const SPELLS_KNOWN_BY_CLASS: Record<string, number[]> = {
   barde:       [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 15, 16, 18, 19, 19, 20, 22, 22, 22],
   ensorceleur: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 13, 13, 14, 14, 15, 15, 15, 15],
   occultiste:  [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15],
 }
+
 
 const playerLevel = ref(1)
 const selectedClass = ref('clerc')
@@ -44,6 +52,30 @@ watch(selectedClass, (newClass) => {
   selectedSubclass.value = DEFAULT_SUBCLASS[newClass] || ''
 })
 
+
+// --- ÉTATS VISUELS & API ---
+const spellsList = ref<Spell[]>([])
+const isLoading = ref(false)
+const error = ref<string | null>(null)
+
+// États du Tooltip Flottant
+const hoveredSpell = ref<Spell | null>(null)
+const tooltipPos = ref<{ x: number; y: number } | null>(null)
+const tooltipSide = ref<'left' | 'right'>('right')
+
+// --- EFFET 1 : CHANGEMENT DE CLASSE ---
+watch(selectedClass, (newClass) => {
+  preparedSpells.value = []
+  if (newClass === 'paladin') {
+    selectedSubclass.value = 'devotion'
+  } else if (newClass === 'clerc') {
+    selectedSubclass.value = 'vie'
+  } else {
+    selectedSubclass.value = ''
+  }
+})
+
+// --- EFFET 2 : CHARGEMENT API ---
 async function fetchSpells() {
   isLoading.value = true
   error.value = null
@@ -74,6 +106,9 @@ async function fetchAllSpells() {
 }
 fetchAllSpells()
 
+// --- LOGIQUE MÉTIER ---
+
+// 1. Calcul des emplacements de sorts
 const slotsConfig = computed(() => getSlotsForClass(selectedClass.value, playerLevel.value))
 const availableLevels = computed(() => Object.keys(slotsConfig.value).map(Number))
 const maxSpellLevel = computed(() => availableLevels.value.length > 0 ? Math.max(...availableLevels.value) : 0)
@@ -83,6 +118,10 @@ const subClassDataList = computed<(DomainData | OathData | OriginData | Traditio
   if (selectedClass.value === 'paladin') return Object.values(oaths.value ?? {})
   if (selectedClass.value === 'ensorceleur') return Object.values(SORCERER_ORIGINS)
   if (selectedClass.value === 'magicien') return Object.values(WIZARD_TRADITIONS)
+// 2. Récupération des données de Sous-classe (Domaine ou Serment)
+const subClassDataList = computed<(DomainData | OathData)[]>(() => {
+  if (selectedClass.value === 'clerc') return Object.values(domains.value ?? {})
+  if (selectedClass.value === 'paladin') return Object.values(oaths.value ?? {})
   return []
 })
 
@@ -92,6 +131,7 @@ const subclassLabel = computed(() => {
   if (selectedClass.value === 'ensorceleur') return 'Origine Magique'
   if (selectedClass.value === 'magicien') return 'Tradition Arcane'
   return ''
+  return 'Domaine'
 })
 
 const subclassDesc = computed(() => {
@@ -124,6 +164,7 @@ const subclassSpellsList = computed(() => {
     Object.entries(currentData.spells).forEach(([levelReq, ids]) => {
       if (playerLevel.value >= Number(levelReq)) {
         const found = allSpells.value.filter(s => ids.includes(s.id))
+        const found = spellsList.value.filter(s => ids.includes(s.id))
         spells.push(...found)
       }
     })
@@ -154,6 +195,11 @@ const subclassFeaturesIcon = computed(() => {
   return ''
 })
 
+  // Déduplication
+  return Array.from(new Map(spells.map(s => [s.id, s])).values())
+})
+
+// 3. Calcul de la Limite de Sorts Préparés
 const isKnownCaster = computed(() => ['barde', 'ensorceleur', 'occultiste'].includes(selectedClass.value.toLowerCase()))
 
 const maxPreparedSpells = computed(() => {
@@ -180,6 +226,9 @@ function isSlotDepleted(spellLevel: number): boolean {
   return (slotsConfig.value[spellLevel] || 0) > 0
 }
 
+const isFull = computed(() => currentLeveledCount.value >= maxPreparedSpells.value)
+
+// 4. Filtrage de la Bibliothèque
 const availableSpells = computed(() => {
   return spellsList.value
     .filter(s => {
@@ -192,6 +241,7 @@ const availableSpells = computed(() => {
     .sort((a, b) => a.level - b.level || a.nameFr.localeCompare(b.nameFr))
 })
 
+// 5. Tri des sorts du Grimoire
 const myCantrips = computed(() =>
   preparedSpells.value
     .filter(s => s.level === 0)
@@ -204,6 +254,7 @@ const myLeveledSpells = computed(() =>
     .sort((a, b) => a.level - b.level || a.nameFr.localeCompare(b.nameFr))
 )
 
+// --- GESTIONNAIRES D'ACTIONS ---
 function addSpell(s: Spell) {
   if (s.level > 0 && isFull.value) return
   preparedSpells.value = [...preparedSpells.value, s]
@@ -222,6 +273,8 @@ function clearHideTimeout() {
 
 function handleSpellEnter(e: MouseEvent, spell: Spell, side: 'left' | 'right') {
   clearHideTimeout()
+// Gestionnaires de Survol (Tooltip)
+function handleSpellEnter(e: MouseEvent, spell: Spell, side: 'left' | 'right') {
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
   tooltipPos.value = { x: side === 'right' ? rect.right : rect.left, y: rect.top }
   tooltipSide.value = side
@@ -257,6 +310,8 @@ function scrollToLevel(lvl: number) {
 
 function getPrevLevel(index: number): number {
   return index > 0 ? availableSpells.value[index - 1].level : -1
+  hoveredSpell.value = null
+  tooltipPos.value = null
 }
 </script>
 
@@ -266,6 +321,7 @@ function getPrevLevel(index: number): number {
 
     <main class="relative w-full overflow-x-hidden pt-24 pb-12 px-2 md:px-6 flex-1">
       <div class="max-w-[1600px] mx-auto">
+        <!-- HEADER -->
         <div class="backdrop-blur-sm bg-dnd-leather/30 border-y-4 border-double border-dnd-gold/40 rounded-xl p-6 relative mb-8">
           <header class="text-center relative">
             <h1 class="text-4xl md:text-5xl font-serif font-bold text-dnd-gold tracking-widest uppercase">
@@ -281,6 +337,9 @@ function getPrevLevel(index: number): number {
 
             <div
               v-if="selectedClass === 'clerc' || selectedClass === 'paladin' || selectedClass === 'ensorceleur' || selectedClass === 'magicien'"
+            <!-- SÉLECTEUR SOUS-CLASSE (Si pertinent) -->
+            <div
+              v-if="selectedClass === 'clerc' || selectedClass === 'paladin'"
               class="flex flex-col items-center gap-2 animate-fadeIn mt-2"
             >
               <label class="text-dnd-gold-dim text-[10px] uppercase tracking-[0.2em]">
@@ -329,11 +388,14 @@ function getPrevLevel(index: number): number {
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div class="lg:col-span-3 flex flex-col backdrop-blur-md bg-dnd-parchment/5 border-2 border-dnd-gold/30 rounded-xl overflow-hidden relative order-2 lg:order-1 sticky top-28 z-30 lg:max-h-[calc(100vh-140px)]">
+          <!-- 1. GAUCHE : MON GRIMOIRE -->
+          <div class="lg:col-span-3 flex flex-col h-[calc(100vh-280px)] min-h-[500px] backdrop-blur-md bg-dnd-parchment/5 border-2 border-dnd-gold/30 rounded-xl overflow-hidden relative order-2 lg:order-1 sticky top-28 z-30">
             <div class="bg-dnd-leather/80 p-3 border-b border-dnd-gold/40 sticky top-0 z-10 text-center">
               <h3 class="text-dnd-gold font-serif font-bold">Mon Grimoire</h3>
             </div>
 
             <div class="flex-1 overflow-y-auto overflow-x-hidden p-2 custom-scrollbar space-y-4">
+              <!-- Section SORTS DE SOUS-CLASSE -->
               <div v-if="subclassSpellsList.length > 0">
                 <h4 class="text-xs font-bold text-dnd-gold bg-dnd-gold/5 border border-dnd-gold/20 py-1 px-2 rounded uppercase tracking-widest mb-2 flex justify-between items-center">
                   <span>✦ {{ selectedClass === 'paladin' ? 'Serment' : 'Domaine' }}</span>
@@ -355,10 +417,20 @@ function getPrevLevel(index: number): number {
                       @eye-click="modalSpell = $event"
                     />
                   </div>
+                  <SpellItem
+                    v-for="spell in subclassSpellsList"
+                    :key="spell.id"
+                    :spell="spell"
+                    action-icon="✦"
+                    @action="() => {}"
+                    @spell-enter="(e, s) => handleSpellEnter(e, s, 'right')"
+                    @spell-leave="handleSpellLeave"
+                  />
                 </div>
                 <div class="border-b border-dnd-gold/10 mx-4 mb-2" />
               </div>
 
+              <!-- Cantrips (Tours de magie) -->
               <div v-if="myCantrips.length > 0">
                 <h4 class="text-xs font-bold text-dnd-gold-dim uppercase tracking-widest mb-2 px-2 flex justify-between items-center">
                   <span>Cantrips</span>
@@ -378,6 +450,7 @@ function getPrevLevel(index: number): number {
                 </div>
               </div>
 
+              <!-- Sorts Préparés (Niveau 1+) -->
               <div>
                 <h4
                   :class="[
@@ -390,6 +463,8 @@ function getPrevLevel(index: number): number {
                     v-if="!isKnownCaster"
                     :class="['px-1.5 rounded text-white', isFull ? 'bg-dnd-red' : 'bg-dnd-red/40']"
                   >
+                  <span>Préparés</span>
+                  <span :class="['px-1.5 rounded text-white', isFull ? 'bg-dnd-red' : 'bg-dnd-red/40']">
                     {{ currentLeveledCount }} / {{ maxPreparedSpells }}
                   </span>
                 </h4>
@@ -410,11 +485,21 @@ function getPrevLevel(index: number): number {
                       @eye-click="modalSpell = $event"
                     />
                   </div>
+                  <SpellItem
+                    v-for="spell in myLeveledSpells"
+                    :key="spell.id"
+                    :spell="spell"
+                    action-icon="✕"
+                    @action="removeSpell(spell.id)"
+                    @spell-enter="(e, s) => handleSpellEnter(e, s, 'right')"
+                    @spell-leave="handleSpellLeave"
+                  />
                 </div>
               </div>
             </div>
           </div>
 
+          <!-- 2. CENTRE : RESSOURCES -->
           <div class="lg:col-span-6 order-1 lg:order-2 flex flex-col">
             <div class="h-full backdrop-blur-sm bg-black/20 border border-dnd-gold/10 rounded-xl p-4 md:p-8 flex flex-col">
               <h3 class="text-center font-serif text-dnd-gold text-2xl mb-6 tracking-widest flex-shrink-0">
@@ -423,6 +508,7 @@ function getPrevLevel(index: number): number {
               <div class="flex-1">
                 <SpellSlotsGrid :player-level="playerLevel" :player-class="selectedClass" v-model:current-slots="currentSlots" />
 
+                <SpellSlotsGrid :player-level="playerLevel" :player-class="selectedClass" />
                 <ChannelDivinity
                   :player-level="playerLevel"
                   :player-class="selectedClass"
@@ -491,16 +577,39 @@ function getPrevLevel(index: number): number {
             </div>
 
             <div ref="libScrollRef" class="flex-1 overflow-y-auto overflow-x-hidden p-2 custom-scrollbar space-y-1">
+          <!-- 3. DROITE : BIBLIOTHÈQUE API -->
+          <div class="lg:col-span-3 flex flex-col h-[calc(100vh-280px)] min-h-[500px] backdrop-blur-md bg-dnd-dark/40 border-2 border-dnd-gold/20 rounded-xl overflow-hidden relative order-3 sticky top-28 z-30">
+            <div class="bg-dnd-dark/90 p-3 border-b border-dnd-gold/20 sticky top-0 z-10 flex items-center gap-3">
+              <h3 class="text-dnd-gold-dim font-serif font-bold hidden xl:block">📚</h3>
+              <div class="relative flex-1">
+                <input
+                  v-model="searchQuery"
+                  type="text"
+                  placeholder="Rechercher..."
+                  class="w-full bg-black/40 border border-dnd-gold/30 rounded px-2 py-1 text-sm text-dnd-parchment focus:outline-none focus:border-dnd-gold/80 placeholder:text-dnd-parchment/20 transition-colors"
+                />
+                <button
+                  v-if="searchQuery"
+                  class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-dnd-gold-dim hover:text-white"
+                  @click="searchQuery = ''"
+                >✕</button>
+              </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto overflow-x-hidden p-2 custom-scrollbar space-y-1">
+              <!-- Loading -->
               <div v-if="isLoading" class="flex flex-col items-center justify-center mt-20 opacity-70">
                 <div class="w-8 h-8 border-4 border-dnd-gold/30 border-t-dnd-gold rounded-full animate-spin mb-4" />
                 <p class="text-xs text-dnd-gold tracking-widest uppercase">Incantation...</p>
               </div>
 
+              <!-- Error -->
               <div v-else-if="error" class="text-center mt-20 px-4">
                 <p class="text-dnd-red font-bold mb-2">⚠ Erreur</p>
                 <p class="text-xs opacity-60 italic">{{ error }}</p>
               </div>
 
+              <!-- Empty -->
               <div v-else-if="availableSpells.length === 0" class="text-center opacity-30 mt-10 italic text-sm">
                 {{ searchQuery ? 'Aucun sort trouvé...' : 'Aucun sort disponible.' }}
               </div>
@@ -528,6 +637,20 @@ function getPrevLevel(index: number): number {
                       @eye-click="modalSpell = $event"
                     />
                   </div>
+              <!-- Spells list -->
+              <template v-else>
+                <div
+                  v-for="spell in availableSpells"
+                  :key="spell.id"
+                  :class="spell.level > 0 && isFull ? 'opacity-50 grayscale' : ''"
+                >
+                  <SpellItem
+                    :spell="spell"
+                    :action-icon="spell.level > 0 && isFull ? '🔒' : '+'"
+                    @action="!(spell.level > 0 && isFull) && addSpell(spell)"
+                    @spell-enter="(e, s) => handleSpellEnter(e, s, 'left')"
+                    @spell-leave="handleSpellLeave"
+                  />
                 </div>
               </template>
             </div>
@@ -544,6 +667,8 @@ function getPrevLevel(index: number): number {
           </div>
 
           <SpellModal :spell="modalSpell" @close="modalSpell = null" />
+          <!-- TOOLTIP FLOTTANT (Global) -->
+          <FloatingTooltip :spell="hoveredSpell" :position="tooltipPos" :side="tooltipSide" />
         </div>
       </div>
     </main>
