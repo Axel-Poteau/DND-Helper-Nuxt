@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import type { Spell, DomainData, OathData, OriginData, TraditionData } from '~/types'
 import { getSlotsForClass } from '~/utils/spellProgression'
-import { SORCERER_ORIGINS } from '~/data/origins'
-import { WIZARD_TRADITIONS } from '~/data/traditions'
 
-const { domains, oaths } = useSubclassData()
+const { domains, oaths, origins, traditions } = useSubclassData()
 
 // Table des sorts connus pour les classes spontanées (Barde, Ensorceleur...)
 const SPELLS_KNOWN_BY_CLASS: Record<string, number[]> = {
@@ -87,8 +85,8 @@ const maxSpellLevel = computed(() => availableLevels.value.length > 0 ? Math.max
 const subClassDataList = computed<(DomainData | OathData | OriginData | TraditionData)[]>(() => {
   if (selectedClass.value === 'clerc') return Object.values(domains.value ?? {})
   if (selectedClass.value === 'paladin') return Object.values(oaths.value ?? {})
-  if (selectedClass.value === 'ensorceleur') return Object.values(SORCERER_ORIGINS)
-  if (selectedClass.value === 'magicien') return Object.values(WIZARD_TRADITIONS)
+  if (selectedClass.value === 'ensorceleur') return Object.values(origins.value ?? {})
+  if (selectedClass.value === 'magicien') return Object.values(traditions.value ?? {})
   return []
 })
 
@@ -108,10 +106,10 @@ const subclassDesc = computed(() => {
     return (oaths.value ?? {})[selectedSubclass.value]?.description || ''
   }
   if (selectedClass.value === 'ensorceleur') {
-    return SORCERER_ORIGINS[selectedSubclass.value]?.description || ''
+    return (origins.value ?? {})[selectedSubclass.value]?.description || ''
   }
   if (selectedClass.value === 'magicien') {
-    return WIZARD_TRADITIONS[selectedSubclass.value]?.description || ''
+    return (traditions.value ?? {})[selectedSubclass.value]?.description || ''
   }
   return ''
 })
@@ -140,10 +138,10 @@ const subclassSpellsList = computed(() => {
 
 const subclassFeatures = computed(() => {
   if (selectedClass.value === 'ensorceleur') {
-    return SORCERER_ORIGINS[selectedSubclass.value]?.features || []
+    return (origins.value ?? {})[selectedSubclass.value]?.features || []
   }
   if (selectedClass.value === 'magicien') {
-    return WIZARD_TRADITIONS[selectedSubclass.value]?.features || []
+    return (traditions.value ?? {})[selectedSubclass.value]?.features || []
   }
   return []
 })
