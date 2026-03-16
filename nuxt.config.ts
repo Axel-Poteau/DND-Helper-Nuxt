@@ -10,7 +10,12 @@ export default defineNuxtConfig({
   ],
 
   supabase: {
-    redirect: false,
+    redirect: true,
+    redirectOptions: {
+      login: '/',
+      callback: '/confirm',
+      exclude: ['/'],
+    },
   },
 
   googleFonts: {

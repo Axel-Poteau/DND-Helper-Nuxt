@@ -3,6 +3,54 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export interface Database {
   public: {
     Tables: {
+      profiles: {
+        Row:    { id: string; username: string; is_premium: boolean }
+        Insert: { id: string; username: string; is_premium?: boolean }
+        Update: { username?: string; is_premium?: boolean }
+      }
+      characters: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          class: string
+          level: number
+          subclass: string
+          ability_mod: number
+          avatar: string
+          prepared_spell_ids: Json
+          current_slots: Json
+          sorcery_points: number | null
+          channel_divinity_uses: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          name: string
+          class: string
+          level?: number
+          subclass?: string
+          ability_mod?: number
+          avatar?: string
+          prepared_spell_ids?: Json
+          current_slots?: Json
+          sorcery_points?: number | null
+          channel_divinity_uses?: number | null
+        }
+        Update: {
+          name?: string
+          class?: string
+          level?: number
+          subclass?: string
+          ability_mod?: number
+          avatar?: string
+          prepared_spell_ids?: Json
+          current_slots?: Json
+          sorcery_points?: number | null
+          channel_divinity_uses?: number | null
+        }
+      }
       domains: {
         Row:    { id: string; label: string; description: string }
         Insert: { id: string; label: string; description: string }
@@ -27,6 +75,26 @@ export interface Database {
         Row:    { id: number; oath_id: string; level: number; spell_slug: string }
         Insert: { oath_id: string; level: number; spell_slug: string }
         Update: { oath_id?: string; level?: number; spell_slug?: string }
+      }
+      origins: {
+        Row:    { id: string; label: string; description: string }
+        Insert: { id: string; label: string; description: string }
+        Update: { id?: string; label?: string; description?: string }
+      }
+      origin_features: {
+        Row:    { id: number; origin_id: string; level: number; title: string; description: string; sort_order: number }
+        Insert: { origin_id: string; level: number; title: string; description: string; sort_order?: number }
+        Update: { origin_id?: string; level?: number; title?: string; description?: string; sort_order?: number }
+      }
+      traditions: {
+        Row:    { id: string; label: string; description: string }
+        Insert: { id: string; label: string; description: string }
+        Update: { id?: string; label?: string; description?: string }
+      }
+      tradition_features: {
+        Row:    { id: number; tradition_id: string; level: number; title: string; description: string; sort_order: number }
+        Insert: { tradition_id: string; level: number; title: string; description: string; sort_order?: number }
+        Update: { tradition_id?: string; level?: number; title?: string; description?: string; sort_order?: number }
       }
     }
     Views: Record<string, never>

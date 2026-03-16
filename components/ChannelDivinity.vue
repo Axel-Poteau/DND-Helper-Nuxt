@@ -7,7 +7,7 @@ const props = defineProps<{
   selectedSubclass: string
 }>()
 
-const usesLeft = ref(0)
+const usesLeft = defineModel<number | null>('channelDivinityUses', { default: null })
 
 const maxUses = computed(() => {
   const pClass = props.playerClass.toLowerCase()
@@ -28,14 +28,15 @@ const maxUses = computed(() => {
 })
 
 watch(maxUses, (val) => {
-  usesLeft.value = val
+  if (usesLeft.value === null) {
+    usesLeft.value = val
+  }
 }, { immediate: true })
 
 const features = computed(() => {
   const result: { name: string; desc: string }[] = []
   const pClass = props.playerClass.toLowerCase()
 
-  // ================== LOGIQUE CLERC ==================
   if (pClass === 'clerc') {
     if (props.playerLevel >= 2) {
       const isDestroy = props.playerLevel >= 5
@@ -91,7 +92,6 @@ const features = computed(() => {
     }
   }
 
-  // ================== LOGIQUE PALADIN ==================
   else if (pClass === 'paladin' && props.playerLevel >= 3) {
     const oathData = (oaths.value ?? {})[props.selectedSubclass]
     if (oathData && oathData.channelDivinity) {
@@ -105,6 +105,7 @@ const features = computed(() => {
 })
 
 function toggleCharge(index: number) {
+  if (usesLeft.value == null) return
   const isAvailable = index < usesLeft.value
   if (isAvailable) {
     usesLeft.value--
@@ -132,30 +133,27 @@ function toggleCharge(index: number) {
     </div>
 
     <div class="bg-dnd-dark/40 p-4 rounded-lg border border-dnd-gold/10 flex flex-col items-center gap-4">
-      <!-- COMPTEURS (SOLEILS) -->
       <div class="flex gap-4">
         <button
           v-for="(_, i) in maxUses"
           :key="i"
           :class="[
             'w-12 h-12 rounded-full border-2 flex items-center justify-center text-2xl transition-all duration-300',
-            i < usesLeft
+            i < (usesLeft ?? 0)
               ? 'bg-dnd-gold/20 border-dnd-gold text-dnd-gold shadow-[0_0_15px_rgba(218,165,32,0.4)] scale-100 hover:scale-105'
               : 'bg-black/40 border-dnd-gold/20 text-dnd-gold/10 scale-95 grayscale',
           ]"
-          :title="i < usesLeft ? 'Utiliser une charge' : 'Restaurer une charge'"
+          :title="i < (usesLeft ?? 0) ? 'Utiliser une charge' : 'Restaurer une charge'"
           @click="toggleCharge(i)"
         >
           ☀
         </button>
       </div>
 
-      <!-- Texte informatif charges -->
       <div class="text-[10px] text-dnd-parchment/40 uppercase tracking-widest mb-2">
         {{ usesLeft }} / {{ maxUses }} Utilisations disponibles
       </div>
 
-      <!-- LISTE DES EFFETS DISPONIBLES -->
       <div class="w-full space-y-3 mt-2">
         <div
           v-for="(feat, idx) in features"
