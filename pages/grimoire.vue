@@ -8,6 +8,7 @@ const { characters, activeCharacter, fetchCharacters, saveCharacterState } = use
 
 // --- CHARACTER LOADING ---
 const characterId = computed(() => route.query.character as string | undefined)
+const readonly = computed(() => route.query.readonly === 'true')
 const characterLoaded = ref(false)
 
 const SPELLS_KNOWN_BY_CLASS: Record<string, number[]> = {
@@ -47,11 +48,27 @@ onMounted(async () => {
     return
   }
 
-  await fetchCharacters()
-  const char = characters.value.find(c => c.id === characterId.value)
-  if (!char) {
-    navigateTo('/dashboard')
-    return
+  let char
+  if (readonly.value) {
+    // Load shared character via RPC
+    const supabase = useSupabaseClient() as any
+    const { data, error: err } = await supabase.rpc('get_shared_character', { p_character_id: characterId.value })
+    if (err || !data) {
+      navigateTo('/dashboard')
+      return
+    }
+    char = {
+      ...data,
+      prepared_spell_ids: Array.isArray(data.prepared_spell_ids) ? data.prepared_spell_ids : JSON.parse(data.prepared_spell_ids || '[]'),
+      current_slots: Array.isArray(data.current_slots) ? data.current_slots : JSON.parse(data.current_slots || '[]'),
+    }
+  } else {
+    await fetchCharacters()
+    char = characters.value.find(c => c.id === characterId.value)
+    if (!char) {
+      navigateTo('/dashboard')
+      return
+    }
   }
 
   activeCharacter.value = char
@@ -126,7 +143,7 @@ const sessionState = computed<CharacterSessionState>(() => ({
 }))
 
 watch(sessionState, (newState) => {
-  if (!activeCharacter.value || !characterLoaded.value) return
+  if (!activeCharacter.value || !characterLoaded.value || readonly.value) return
   if (saveTimeout) clearTimeout(saveTimeout)
   saveTimeout = setTimeout(() => {
     saveCharacterState(activeCharacter.value!.id, newState)
@@ -135,7 +152,7 @@ watch(sessionState, (newState) => {
 
 onBeforeUnmount(() => {
   if (saveTimeout) clearTimeout(saveTimeout)
-  if (activeCharacter.value && characterLoaded.value) {
+  if (activeCharacter.value && characterLoaded.value && !readonly.value) {
     saveCharacterState(activeCharacter.value.id, sessionState.value)
   }
 })
@@ -254,11 +271,13 @@ const myLeveledSpells = computed(() =>
 
 // --- ACTIONS ---
 function addSpell(s: Spell) {
+  if (readonly.value) return
   if (s.level > 0 && isFull.value) return
   preparedSpells.value = [...preparedSpells.value, s]
 }
 
 function removeSpell(id: string) {
+  if (readonly.value) return
   preparedSpells.value = preparedSpells.value.filter(s => s.id !== id)
 }
 
@@ -323,9 +342,12 @@ function getPrevLevel(index: number): number {
             <div class="mt-2 text-dnd-parchment/60 font-serif text-lg uppercase tracking-widest">
               — {{ activeCharacter?.name }} &bull; {{ selectedClass }} &bull; Niv {{ playerLevel }} —
             </div>
+            <div v-if="readonly" class="mt-3 inline-block bg-dnd-gold/20 border border-dnd-gold/40 text-dnd-gold font-serif text-xs uppercase tracking-widest px-4 py-1.5 rounded-full">
+              Lecture seule
+            </div>
           </header>
 
-          <div class="mt-6 flex flex-col items-center gap-4">
+          <div v-if="!readonly" class="mt-6 flex flex-col items-center gap-4">
             <LevelSelector :current-level="playerLevel" @level-change="playerLevel = $event" />
 
             <!-- SELECTEUR SOUS-CLASSE -->
@@ -379,7 +401,10 @@ function getPrevLevel(index: number): number {
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <!-- 1. GAUCHE : MON GRIMOIRE -->
-          <div class="lg:col-span-3 flex flex-col backdrop-blur-md bg-dnd-parchment/5 border-2 border-dnd-gold/30 rounded-xl overflow-hidden relative order-2 lg:order-1 sticky top-28 z-30 lg:max-h-[calc(100vh-140px)]">
+          <div :class="[
+            'flex flex-col backdrop-blur-md bg-dnd-parchment/5 border-2 border-dnd-gold/30 rounded-xl overflow-hidden relative sticky top-28 z-30 lg:max-h-[calc(100vh-140px)]',
+            readonly ? 'lg:col-span-4 order-2 lg:order-1' : 'lg:col-span-3 order-2 lg:order-1'
+          ]">
             <div class="bg-dnd-leather/80 p-3 border-b border-dnd-gold/40 sticky top-0 z-10 text-center">
               <h3 class="text-dnd-gold font-serif font-bold">Mon Grimoire</h3>
             </div>
@@ -422,8 +447,8 @@ function getPrevLevel(index: number): number {
                     v-for="spell in myCantrips"
                     :key="spell.id"
                     :spell="spell"
-                    action-icon="✕"
-                    @action="removeSpell(spell.id)"
+                    :action-icon="readonly ? '' : '✕'"
+                    @action="!readonly && removeSpell(spell.id)"
                     @spell-enter="(e, s) => handleSpellEnter(e, s, 'right')"
                     @spell-leave="handleSpellLeave"
                     @eye-click="modalSpell = $event"
@@ -470,7 +495,7 @@ function getPrevLevel(index: number): number {
           </div>
 
           <!-- 2. CENTRE : RESSOURCES -->
-          <div class="lg:col-span-6 order-1 lg:order-2 flex flex-col">
+          <div :class="[readonly ? 'lg:col-span-8' : 'lg:col-span-6', 'order-1 lg:order-2 flex flex-col']">
             <div class="h-full backdrop-blur-sm bg-black/20 border border-dnd-gold/10 rounded-xl p-4 md:p-8 flex flex-col">
               <h3 class="text-center font-serif text-dnd-gold text-2xl mb-6 tracking-widest flex-shrink-0">
                 RESSOURCES
@@ -521,7 +546,7 @@ function getPrevLevel(index: number): number {
           </div>
 
           <!-- 3. DROITE : BIBLIOTHEQUE API -->
-          <div class="lg:col-span-3 flex flex-col backdrop-blur-md bg-dnd-dark/40 border-2 border-dnd-gold/20 rounded-xl overflow-hidden relative order-3 sticky top-28 z-30 lg:max-h-[calc(100vh-140px)]">
+          <div v-if="!readonly" class="lg:col-span-3 flex flex-col backdrop-blur-md bg-dnd-dark/40 border-2 border-dnd-gold/20 rounded-xl overflow-hidden relative order-3 sticky top-28 z-30 lg:max-h-[calc(100vh-140px)]">
             <div class="bg-dnd-dark/90 border-b border-dnd-gold/20 sticky top-0 z-10">
               <div class="flex items-center gap-3 px-3 pt-2 pb-1">
                 <h3 class="text-dnd-gold-dim font-serif font-bold hidden xl:block">📚</h3>

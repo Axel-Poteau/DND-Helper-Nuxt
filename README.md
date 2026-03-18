@@ -110,8 +110,7 @@ composables/
 
 data/
   avatars.ts       # Avatars emoji
-  origins.ts       # Origines (Ensorceleur)
-  traditions.ts    # Traditions (Magicien)
+
 
 utils/
   spellProgression.ts  # Tables de progression des emplacements
