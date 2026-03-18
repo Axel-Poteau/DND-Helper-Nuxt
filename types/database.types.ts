@@ -96,6 +96,40 @@ export interface Database {
         Insert: { tradition_id: string; level: number; title: string; description: string; sort_order?: number }
         Update: { tradition_id?: string; level?: number; title?: string; description?: string; sort_order?: number }
       }
+      game_tables: {
+        Row: {
+          id: string
+          code: string
+          name: string
+          owner_id: string
+          created_at: string
+        }
+        Insert: {
+          name: string
+          owner_id: string
+          code?: string
+        }
+        Update: {
+          name?: string
+        }
+      }
+      table_members: {
+        Row: {
+          id: string
+          table_id: string
+          user_id: string
+          character_id: string
+          joined_at: string
+        }
+        Insert: {
+          table_id: string
+          user_id: string
+          character_id: string
+        }
+        Update: {
+          character_id?: string
+        }
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

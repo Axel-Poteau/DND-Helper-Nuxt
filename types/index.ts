@@ -88,6 +88,24 @@ export interface CharacterCreate {
   avatar: string
 }
 
+export interface GameTable {
+  id: string
+  code: string
+  name: string
+  owner_id: string
+  created_at: string
+}
+
+export interface TableMember {
+  id: string
+  table_id: string
+  user_id: string
+  character_id: string
+  joined_at: string
+  character?: Character
+  profile?: { username: string }
+}
+
 export interface CharacterSessionState {
   level: number
   subclass: string

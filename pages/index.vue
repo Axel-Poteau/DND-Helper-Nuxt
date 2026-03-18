@@ -69,18 +69,15 @@ async function handleRegister() {
   const { data, error: authError } = await supabase.auth.signUp({
     email: registerEmail.value,
     password: registerPassword.value,
+    options: {
+      data: { username: surnom.value.trim() },
+    },
   })
   if (authError) {
     isLoading.value = false
     isRegistering.value = false
     error.value = "Inscription impossible : " + authError.message
     return
-  }
-  if (data.user) {
-    await supabase.from('profiles').insert({
-      id: data.user.id,
-      username: surnom.value.trim(),
-    })
   }
   isLoading.value = false
   isRegistering.value = false
@@ -243,14 +240,10 @@ async function handleRegister() {
           <div class="mt-6 pt-6 border-t border-dnd-gold/20">
             <p class="text-dnd-gold-dim/90 text-sm font-sans leading-relaxed">
               <span class="text-dnd-gold font-serif font-bold uppercase tracking-wider">À quoi sert la connexion ?</span><br />
-              En vous connectant, vous pourrez <strong class="text-dnd-parchment">sauvegarder vos grimoires</strong> (sorts préparés par personnage), <strong class="text-dnd-parchment">y accéder depuis plusieurs appareils</strong> et retrouver vos préférences à chaque partie. Sans compte, vous pouvez tout de même utiliser le Grimoire en bas de page.
+              En vous connectant, vous pourrez <strong class="text-dnd-parchment">sauvegarder vos grimoires</strong> (sorts préparés par personnage), <strong class="text-dnd-parchment">y accéder depuis plusieurs appareils</strong> et retrouver vos préférences à chaque partie.
             </p>
           </div>
         </div>
-
-        <p class="mt-6 text-dnd-gold-dim/70 text-sm font-sans text-center">
-          Le Grimoire reste accessible via le bouton en bas de page.
-        </p>
       </div>
     </main>
 
