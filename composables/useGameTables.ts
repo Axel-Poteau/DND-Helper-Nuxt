@@ -75,7 +75,7 @@ export function useGameTables() {
       .delete()
       .eq('id', id)
     if (err) { error.value = err.message; return }
-    await fetchOwnedTables()
+    await Promise.all([fetchOwnedTables(), fetchJoinedTables()])
   }
 
   async function joinTable(code: string, characterId: string): Promise<boolean> {
