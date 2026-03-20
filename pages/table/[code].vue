@@ -14,6 +14,8 @@ const members = ref<TableMember[]>([])
 const isLoading = ref(true)
 const isOwner = ref(false)
 const copied = ref(false)
+const currentUserId = ref<string | null>(null)
+const confirmKickId = ref<string | null>(null)
 
 const CLASS_LABELS: Record<string, string> = {
   clerc: 'Clerc',
@@ -41,6 +43,7 @@ async function loadTable() {
   }
 
   table.value = data as GameTable
+  currentUserId.value = user.id
   isOwner.value = data.owner_id === user.id
   members.value = await fetchTableMembers(data.id)
   isLoading.value = false
@@ -48,14 +51,24 @@ async function loadTable() {
 
 async function handleKick(memberId: string) {
   if (!table.value) return
+  if (confirmKickId.value !== memberId) {
+    confirmKickId.value = memberId
+    setTimeout(() => { confirmKickId.value = null }, 3000)
+    return
+  }
+  confirmKickId.value = null
   await kickMember(memberId, table.value.id)
   members.value = await fetchTableMembers(table.value.id)
 }
 
-function copyCode() {
-  navigator.clipboard.writeText(code)
-  copied.value = true
-  setTimeout(() => { copied.value = false }, 2000)
+async function copyCode() {
+  try {
+    await navigator.clipboard.writeText(code)
+    copied.value = true
+    setTimeout(() => { copied.value = false }, 2000)
+  } catch {
+    // Fallback silencieux si clipboard non disponible
+  }
 }
 
 if (import.meta.client) {
@@ -156,11 +169,12 @@ if (import.meta.client) {
 
                 <!-- Kick button (owner only, can't kick self) -->
                 <button
-                  v-if="isOwner"
-                  class="px-2 py-1 text-xs font-serif text-dnd-parchment/40 hover:text-dnd-red hover:bg-dnd-red/10 border border-transparent hover:border-dnd-red/30 rounded transition-all"
-                  @click="handleKick(member.id)"
+                  v-if="isOwner && member.user_id !== currentUserId"
+                  class="px-2 py-1 text-xs font-serif rounded transition-all"
+                  :class="confirmKickId === member.id ? 'text-white bg-dnd-red/80 border border-dnd-red' : 'text-dnd-parchment/40 hover:text-dnd-red hover:bg-dnd-red/10 border border-transparent hover:border-dnd-red/30'"
+                  @click.stop="handleKick(member.id)"
                 >
-                  Retirer
+                  {{ confirmKickId === member.id ? 'Confirmer ?' : 'Retirer' }}
                 </button>
               </div>
             </div>

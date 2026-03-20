@@ -53,14 +53,12 @@ export function useCharacters() {
       prepared_spell_ids: [],
       current_slots: [0, 0, 0, 0, 0, 0, 0, 0, 0],
     }
-    console.log('createCharacter payload:', payload)
     const { data, error: err } = await supabase
       .from('characters')
       .insert(payload)
       .select()
       .single()
     if (err) {
-      console.error('createCharacter error:', err)
       if (err.message.includes('Character limit reached')) {
         error.value = 'Limite de personnages atteinte.'
       } else {
@@ -68,7 +66,6 @@ export function useCharacters() {
       }
       return null
     }
-    console.log('createCharacter success:', data)
     await fetchCharacters()
     return data as unknown as Character
   }

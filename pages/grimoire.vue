@@ -41,9 +41,11 @@ const modalSpell = ref<Spell | null>(null)
 const libScrollRef = ref<HTMLDivElement | null>(null)
 let hideTimeout: ReturnType<typeof setTimeout> | null = null
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 // --- LOAD CHARACTER ON MOUNT ---
 onMounted(async () => {
-  if (!characterId.value) {
+  if (!characterId.value || !UUID_RE.test(characterId.value)) {
     navigateTo('/dashboard')
     return
   }
