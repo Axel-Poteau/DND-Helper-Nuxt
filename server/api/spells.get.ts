@@ -2,6 +2,10 @@ import type { ApiSpell, Spell } from '~/types';
 
 const API_URL = 'https://histoiresdetrolls.fr/api/spells';
 
+const ALLOWED_CLASSES = [
+  'barde', 'clerc', 'ensorceleur', 'magicien', 'occultiste', 'paladin',
+];
+
 export default defineEventHandler(async (event) => {
   const query = getQuery(event);
   const className = query.class as string | undefined;
@@ -15,9 +19,16 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  if (className && !ALLOWED_CLASSES.includes(className.toLowerCase())) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Classe invalide.',
+    });
+  }
+
   try {
     const targetUrl = className
-      ? `${API_URL}?class=${className}`
+      ? `${API_URL}?class=${encodeURIComponent(className)}`
       : API_URL;
 
     const rawData = await $fetch<ApiSpell[]>(targetUrl, {
@@ -50,8 +61,7 @@ export default defineEventHandler(async (event) => {
     });
 
     return adaptedSpells;
-  } catch (error) {
-    console.error('Erreur Fetch Spells:', error);
+  } catch {
     throw createError({
       statusCode: 500,
       statusMessage: 'Impossible de récupérer les sorts du grimoire distant.',
